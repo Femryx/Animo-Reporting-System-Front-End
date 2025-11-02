@@ -1,87 +1,128 @@
 import { View, Text, StyleSheet, Button,  VirtualizedList, ScrollView, StatusBar, Image, Pressable, TouchableOpacity, Modal} from "react-native";
 import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
-import postList from '../data.json';
 import { colors } from '../colors';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function HomeScreen( {navigation}){
-    const [post,setpost] = useState({})
-    const [postStatuses, setPostStatuses] = useState({})
+    const [post,setpost] = useState([])
+    const [role,setRole] = useState()
     const [dropdownVisible, setDropdownVisible] = useState(null)
     const get_post = async() =>{
         try{
-            const response = await fetch('http://192.168.82.213:5000/api',{
+            const response = await fetch('http://192.168.5.108:5000/api',{
                 method:'GET',
             });
-            const json = response.json();
+            const json = await response.json();
             setpost(json);
             
         }catch(error){
             console.log(error)
         }
     }
+    const logout = async() =>{
+        await AsyncStorage.removeItem("jwt")
+        await AsyncStorage.removeItem("role")
+        navigation.navigate("LogIn")
+    }
 
     useEffect(()=>{
         get_post();
-        // Initialize post statuses with current values from data.json
-        const initialStatuses = {};
-        postList.forEach(post => {
-            initialStatuses[post.id] = post.Status;
-        });
-        setPostStatuses(initialStatuses);
+        //Need to include the if else checking if the account is admin or student
+        const fetchrole = async () =>{
+            setRole(await AsyncStorage.getItem("role"))
+        }
+        fetchrole()
     },[])
 
-    const handleStatusChange = (postId, newStatus) => {
-        setPostStatuses(prev => ({
-            ...prev,
-            [postId]: newStatus
-        }));
+    const handleStatusChange = async(postId, newStatus) => {
+        try{
+            const response = await fetch('http://192.168.5.108:5000/api/statuschange',{
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    status: newStatus,
+                    id: postId,
+                })
+            })
+            const json = await response.json()
+            console.log(json);
+            get_post();
+        }catch(error){
+            console.log(error);
+        }
         setDropdownVisible(null);
+
     };
 
     const toggleDropdown = (postId) => {
         setDropdownVisible(dropdownVisible === postId ? null : postId);
     };
+
+    const maplocation = (postId,latitude,longitude) =>{
+        navigation.navigate("Map", { 
+            mode: 'viewing' ,
+            postLocation: {latitude: latitude,longitude: longitude}
+        })
+    }
     return(
         <SafeAreaView style = {styles.safeContainer}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             
             <ScrollView style = {styles.scrollView} showsVerticalScrollIndicator={false}>
-                {postList.map((post) => {
+                {post.map((post) => {
                     return (
                         <TouchableOpacity
                             style={styles.postBox}
                             key = {post.id}
-                            onPress={() => navigation.navigate("Map", { mode: 'viewing' })}
+                            onPress={() => maplocation(post.id,post.latitude,post.longitude)}
                             activeOpacity={0.8}
                         >
                             <View style={styles.imageContainer}>
                                 <Image 
-                                    source = {{uri:'https://res.cloudinary.com/dp2eydevh/image/upload/User_upload/25137941-5e19-4bda-9ce7-49033157f39b.jpg.jpg'}}
+                                    source = {{uri:post.image_path}}
                                     style={styles.postImage}
                                 />
-                                <TouchableOpacity
+                                {role === "Admin" ? (
+                                    <TouchableOpacity
                                     style={[
                                         styles.statusDropdown,
-                                        (postStatuses[post.id] || post.Status) === 'Complete' && styles.statusDropdownComplete
+                                        (post[post.id] || post.status) === 'Complete' && styles.statusDropdownComplete
                                     ]}
                                     onPress={() => toggleDropdown(post.id)}
                                 >
                                     <Text style={[
                                         styles.statusText,
-                                        (postStatuses[post.id] || post.Status) === 'Complete' && styles.statusTextComplete
-                                    ]}>{postStatuses[post.id] || post.Status}</Text>
+                                        (post[post.id] || post.status) === 'Complete' && styles.statusTextComplete
+                                    ]}>{post[post.id] || post.status}</Text>
                                     <Text style={[
                                         styles.dropdownArrow,
-                                        (postStatuses[post.id] || post.Status) === 'Complete' && styles.dropdownArrowComplete
+                                        (post[post.id] || post.status) === 'Complete' && styles.dropdownArrowComplete
                                     ]}>▼</Text>
                                 </TouchableOpacity>
+                                ):(
+                                    <Text style={[
+                                        styles.statusDropdown,
+                                        (post[post.id] || post.status) === 'Complete' && styles.statusTextComplete
+                                    ]}>{post[post.id] || post.status}</Text>
+                                )}
                             </View>
                             
                             <View style={styles.postContent}>
-                                <Text style={styles.damageType}>Damage Type: {post.name}</Text>
-                                <Text style={styles.recommendation}>Recommendation: {post.Recommendation}</Text>
-                                <Text style={styles.possibleCause}>Possible Cause: {post.Possible}</Text>
+                                <Text style = {styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
+                                <Text style = {styles.recommendation}>Severity: {post.Severity}</Text>
+                                <Text style = {styles.recommendation}>Recommendation Repair:  
+                                    {Array.isArray(JSON.parse(post.recommendation_repair)) &&
+                                    JSON.parse(post.recommendation_repair).map((item, index) => (
+                                    <Text key={index} style={styles.recommendation}> {item}, </Text>
+                                    ))
+                                }</Text>
+                                <Text style = {styles.recommendation}>Possible Cause:
+                                    {Array.isArray(JSON.parse(post.possible_cause)) &&
+                                    JSON.parse(post.possible_cause).map((item,index) => (
+                                        <Text key = {index} style = {styles.recommendation}> {item}, </Text>
+                                    ))}
+                                </Text>
                             </View>
                         </TouchableOpacity>
                     );
@@ -103,13 +144,13 @@ export default function HomeScreen( {navigation}){
                     <View style={styles.dropdownOptions}>
                         <TouchableOpacity
                             style={styles.dropdownOption}
-                            onPress={() => handleStatusChange(dropdownVisible, 'In Progress')}
+                            onPress={() => handleStatusChange(dropdownVisible,'In Progress')}
                         >
                             <Text style={styles.dropdownOptionText}>In Progress</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.dropdownOption}
-                            onPress={() => handleStatusChange(dropdownVisible, 'Complete')}
+                            onPress={() => handleStatusChange(dropdownVisible,'Complete')}
                         >
                             <Text style={styles.dropdownOptionText}>Complete</Text>
                         </TouchableOpacity>
@@ -130,7 +171,7 @@ export default function HomeScreen( {navigation}){
                 {/* Logout Button - Bottom Left (Icon Only) */}
                 <TouchableOpacity
                     style={styles.logoutButton}
-                    onPress={() => navigation.navigate("LogIn")}
+                    onPress={() => logout()}
                 >
                     <Text style={styles.logoutButtonText}>{"<"}</Text>
                 </TouchableOpacity>

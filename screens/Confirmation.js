@@ -3,29 +3,29 @@ import { SelectList } from 'react-native-dropdown-select-list'
 import { useState, useEffect } from 'react';
 import Label from '../Label.json';
 import { colors } from '../colors';
-
+import * as FileSystem from 'expo-file-system';
 
 const Seperator = () => <View style = {styles.seperator}/>;
-
-
-
-const Confirmation = ({navigation}) => {
-    const [isselected, setIsselecteddamage] = useState(null);
-    const [iscorrect, setIscorrectlabel] = useState(false);
-    const [label,setlabel] = useState('');
-    const [recommendation,  setrecommendation] = useState('');
-    //To do: Sending data to the backend
-    const isselecteddamage = (index) =>{
-        if(isselected == index){
-            setIsselecteddamage(null);
-        }else{
-            setIsselecteddamage(index);
-        }
-    }
+const Confirmation = ({route,navigation}) => {
+    const { token, temppath, filename_link, longitude, latitude } = route.params;
     const [damage,setDamage] = useState([]);
+    const [damagetype,setDamagetype] = useState("");
+    const [severity,setSeverity] = useState("");
+    const [possiblecause,setPossiblecause] = useState("");
+    const [recommendation,setRecommendation] = useState("");
+    const [selectedSeverity, setSelectedSeverity] = useState("");
+    // Severity level options
+    const severityOptions = [
+        {"key":"1", "value":"Minor"},
+        {"key":"2", "value":"Moderate"},
+        {"key":"3", "value":"Severe"}
+    ];
+
+    {/* for the dropdown list */}
+    const [selected, setSelected] = useState("");
     const get_folder_name = async() =>{
         try{
-            const response = await fetch('http://192.168.82.213:5000/api/get_folder_name',
+            const response = await fetch('http://192.168.5.108:5000/api/get_folder_name',
                 {
                     method:'GET',
                 }
@@ -36,22 +36,69 @@ const Confirmation = ({navigation}) => {
             console.log(error)
         }
     }
+    const sending_database = async() =>{
+        const formdata = new FormData();
+        //This is for known damage
+        if(damagetype === "" && selected !== null && recommendation !== null && possiblecause !== null && severity !== null){
+            formdata.append('latitude', latitude)
+            formdata.append('longitude',latitude)
+            formdata.append('image',
+                {
+                    uri:temppath,
+                    name:filename_link,
+                    type:'image/jpg',
+                }
+            );
+            formdata.append('token',token)
+            formdata.append('severity',selectedSeverity)
+            formdata.append('damage',selected)
+            formdata.append('Recommendation',recommendation)
+            formdata.append('possiblecause',possiblecause)
+        //this part is the new data    
+        }else if(damagetype !== null && selected === "" && recommendation !== null && possiblecause !== null && severity !== null){
+            formdata.append('latitude', latitude)
+            formdata.append('longitude',longitude)
+            formdata.append('image',
+                {
+                    uri:temppath,
+                    name:filename_link,
+                    type:'image/jpg'
+                }
+            )
+            formdata.append('token',token)
+            formdata.append('severity',selectedSeverity)
+            formdata.append('damage',damagetype)
+            formdata.append('Recommendation',recommendation)
+            formdata.append('possiblecause',possiblecause)
+        }else if(damagetype !== "" && selected !== ""){
+            Alert.alert("Both Selected List Damage and Input Damage has value, Please Choose One");
+            return;
+        }else if(recommendation == null || possiblecause == null || severity == null){
+            Alert.alert("Make sure to have Input!")
+            return;
+        }
+        console.log(formdata)
+        //Sending it to the database
+        try{
+            const response = await fetch('http://192.168.5.108:5000/api/new_data',
+                 {
+                method: 'POST',
+                body:formdata,
+                }
+            )
+            const message = await response.json();
+            console.log(message.message); 
+        }catch(err){
+            console.log(err)
+        }
 
+        await FileSystem.deleteAsync(temppath,{idempotent:true})
+        console.log("temporary file has been deleted!")
+        navigation.navigate("Home");
+    }
     useEffect(()=>{
         get_folder_name();
     },[])
-
-    {/* for the dropdown list */}
-    const [selected, setSelected] = useState("");
-    const [selectedSeverity, setSelectedSeverity] = useState("");
-
-    // Severity level options
-    const severityOptions = [
-        {"key":"1", "value":"Minor"},
-        {"key":"2", "value":"Moderate"},
-        {"key":"3", "value":"Severe"}
-    ];
-
     return(
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -73,8 +120,8 @@ const Confirmation = ({navigation}) => {
                             <Text style={styles.label}>Label</Text>
                             <View style={styles.dropdownContainer}>
                                 <SelectList
-                                    setSelected={(val) => setSelected(val)}
-                                    data={Label}
+                                    setSelected={(val) => setSelected(val)} 
+                                    data={damage} 
                                     save="value"
                                     boxStyles={styles.dropdownBox}
                                     inputStyles={styles.dropdownInput}
@@ -82,7 +129,16 @@ const Confirmation = ({navigation}) => {
                                 />
                             </View>
                         </View>
-
+                        <Text style={styles.label}>
+                            Damage Name (If damage isn't in the list)
+                            </Text>
+                        <TextInput
+                        value = {damagetype}
+                        onChangeText = {setDamagetype} 
+                        style={[styles.input, styles.textArea]}
+                        placeholder="Input what kind of damage...."
+                        placeholderTextColor={colors.textLight}
+                        />
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Enter severity</Text>
                             <View style={styles.dropdownContainer}>
@@ -97,10 +153,11 @@ const Confirmation = ({navigation}) => {
                                 />
                             </View>
                         </View>
-
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Repair Recommendation</Text>
                             <TextInput
+                                value = {recommendation}
+                                onChangeText={setRecommendation}
                                 style={[styles.input, styles.textArea]}
                                 placeholder="Describe recommended repair actions..."
                                 placeholderTextColor={colors.textLight}
@@ -112,6 +169,8 @@ const Confirmation = ({navigation}) => {
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Possible Cause</Text>
                             <TextInput
+                                value = {possiblecause}
+                                onChangeText={setPossiblecause}
                                 style={[styles.input, styles.textArea]}
                                 placeholder="Describe possible causes of the damage..."
                                 placeholderTextColor={colors.textLight}
@@ -120,16 +179,14 @@ const Confirmation = ({navigation}) => {
                             />
                         </View>
                     </View>
-
                     <Seperator/>
-
                     {/* Submit Button */}
                     <View style={styles.submitSection}>
                         <TouchableOpacity
                             style={styles.submitButton}
-                            onPress={() => navigation.navigate("Map", { mode: 'pinpoint' })}
+                            onPress={() => sending_database()}
                         >
-                            <Text style={styles.submitButtonText}>📍 Locate the damage</Text>
+                            <Text style={styles.submitButtonText}>Submit</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

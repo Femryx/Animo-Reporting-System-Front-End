@@ -1,26 +1,53 @@
 import { View, Text, StyleSheet, Button, TextInput, Pressable, Alert, StatusBar, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useState } from "react";
 import { colors } from "../colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Log({navigation}){
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [success,setsuccess] = useState(false);
 
-    //Notification na need mafill ung mga fields
-    const handleLogin = () => {
+    const handleLogin = async() => {
+        try{
+            const response = await fetch('http://192.168.5.108:5000/api/loginCheck',
+                {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "email": email,
+                        "password": password,
+                    })
+                }
+            )
+            const data = await response.json();
+            const token = data.token;
+            setsuccess(data.success)
+            await AsyncStorage.setItem("jwt",token);
+            await AsyncStorage.setItem("role",data.role);
+        }catch(error){
+            console.log(error)
+        }
+
+        
         if (!email || !password) {
             Alert.alert("Error", "Please fill in all fields");
             return;
         }
-        // Basic email validation
-        // Need ung mga to para maka progress ng projeect
+        // // Basic email validation
+        // // Need ung mga to para maka progress ng projeect
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             Alert.alert("Error", "Please enter a valid email address");
             return;
         }
-        // Navigate to home screen
-        navigation.navigate("Home");
+
+        if(success == true){
+            // Navigate to home screen
+            navigation.navigate("Home");
+        }
     };
 
     return(

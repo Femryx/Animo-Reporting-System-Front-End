@@ -1,49 +1,107 @@
-import { View, Text, StyleSheet, Button, Modal, Pressable, Switch, TextInput, TouchableOpacity} from "react-native";
+import { View, Text, StyleSheet, Button, Modal, Pressable, Switch, TextInput, TouchableOpacity, Image} from "react-native";
 import { useState, useEffect } from 'react';
 import * as Location from 'expo-location';
 import Box from "../components/Box"
 import CameraScreen from "../components/Camera_screen"
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from 'expo-file-system';
 import { colors } from '../colors';
 
 const Seperator = () => <View style = {styles.seperator}/>;
 
 export default function Camera({navigation}){
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [predicted, setpredicted] = useState({});
-    const formdata = new FormData()
+    const [predicted, setpredicted] = useState();
+    const [confidencescore, setConfidencescore] = useState(0);
+    const [severity,setSeverity] = useState("")
+    const predictionformdata = new FormData()
     //For geolocation variable:
     const [location, setLocation] = useState(null);
     const [errorMsg, setErrorMsg] = useState(null);
-
     //for storing in the database
     const [latitude,setlatitude] = useState();
     const [longitude, setlongitude] = useState();
     const [photolink,setPhotolink] = useState();
+    const [filename_link,setFilename] = useState();
+    //for highlights image
+    const [highlightimage,sethighlightimage] = useState();
+    const get_highlights_image = async(image_url)=>{
+        console.log("Sample1")
+        const base64Image = await FileSystem.readAsStringAsync(image_url, {
+            encoding: FileSystem.EncodingType.Base64,
+        });
+        // console.log(base64Image)
+        // console.log('sample2')
+        const response = await fetch('https://serverless.roboflow.com/projects-lkhtb/workflows/detect-count-and-visualize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                api_key: 'DWFToNzm6BYOFx31CvMx',
+                inputs: {
+                    image: {
+                        type: "base64",
+                        value: base64Image
+                    }
+                }
+            })
+        });
+        console.log('sample3')
+        const result = await response.json();
+        sethighlightimage(result.outputs[0].output_image.value);
+        // console.log(result)
+        // console.log(result);
+        console.log('done')
+    }
 
     //if the predictions is invalid
     const get_all_information = async()=>{
+        try{
+            //Creating a temp file
+            const temppath = FileSystem.documentDirectory + filename_link;
 
+            //Copying
+            await FileSystem.copyAsync({
+                from: photolink,
+                to: temppath,
+            });
+            const token = await AsyncStorage.getItem('jwt');
+            setTimeout(()=>{
+                navigation.navigate("Confirmation",{
+                    token,
+                    temppath,
+                    filename_link,
+                    longitude,
+                    latitude,
+                });
+            }, 0)
+        }catch(err){
+            console.log(err)
+        }
     }
-
     //If the predictions is correct sending it to the database
     const post_database_data = async()=>{
-
-        const split_photo = photolink.split('/');
-        const filename = split_photo[split_photo.length-1];
-        formdata.append('image',
-           {
-            uri: photolink,
-            name:filename,
-            type:'image/jpg'
-           }
-        )
-
-        formdata.append('result',predicted.result)
+        console.log('something')
+        const formdata = new FormData()
+        console.log('Formdata Created!')
+        // formdata.append('user_id',decoded_user_id.user_id);
+        const token = await AsyncStorage.getItem('jwt')
+        formdata.append('token',token)
+        formdata.append('result',predicted)
+        formdata.append('severity',severity)
         formdata.append('longitude',longitude)
         formdata.append('latitude',latitude)
+        formdata.append('image',
+             {
+                uri: photolink,
+                name: filename_link,
+                type:'image/jpg'
+           }
+        )
         console.log(formdata)
         try{
-            const response = await fetch('http://192.168.82.213:5000/api/store_the_post',
+            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
             {
                 method:'POST',
                 body:formdata
@@ -69,46 +127,55 @@ export default function Camera({navigation}){
     }
     //Getting the Predictions
     const get_predictions = () =>{
-        fetch('http://192.168.198.213:5000/api/get_predictions',
+        fetch('http://192.168.5.108:5000/api/get_predictions',
             {
                 method:'POST',
                 headers:{
                     'Content-Type': 'multipart/form-data',
                 },
-                body:formdata,
+                body:predictionformdata,
             }
         )
         .then(response => response.json())
         .then(json =>{
-            setpredicted(json)
+            setpredicted(json.result);
+            setConfidencescore(json.score);
+            setSeverity(json.severity);
         })
         .catch(error =>{
             console.log(error)
         })
-    }
 
+    }
     //This handles the predictions with geolocaiton
     //User take pic
     const handlePhotoTaken = async(photo) => {
         //Confirmation Button
-        setIsModalVisible(true);
         const photo_link = photo.uri;
         setPhotolink(photo_link);
         const split_photo = photo_link.split('/');
         const filename = split_photo[split_photo.length-1];
+        setFilename(filename);
         console.log(filename)
-        formdata.append('image',
+
+        predictionformdata.append('image',
            {
             uri: photo.uri,
             name:filename,
             type:'image/jpg'
            }
         )
+        // console.log(predictionformdata)
+        //getting the predictions
         get_predictions();
+        //after the predictions:
+        console.log('sample')
+        get_highlights_image(photo_link);
+        //this gets the geolocation
         await get_geolocation();
+        //after getting the other requirements it opens the modal
+        setIsModalVisible(true);
       };
-    
-
     useEffect(() => {
         async function getCurrentLocation() {
             let { status } = await Location.requestForegroundPermissionsAsync();
@@ -117,14 +184,12 @@ export default function Camera({navigation}){
               return;
             }
           }
-      
+        //   console.log(highlightimage)
         getCurrentLocation();
-        console.log(location)
     },[]);
     return(
     <View style={{ flex: 1 }}>
       <CameraScreen onPhotoTaken={handlePhotoTaken}/>
-
         {/*Modal for the prediction*/}
     <Modal 
         visible={isModalVisible}
@@ -133,13 +198,21 @@ export default function Camera({navigation}){
         <View style = {styles.modalContainer}>
             <View style = {styles.popUp}>
                 <View style = {styles.popUpElements}>
-                    <View style = {styles.pictureBox}></View>
-                    
+                    <View style = {styles.pictureBox}>
+                        {highlightimage ? (
+                            <Image
+                            source={{ uri:`data:image/jpeg;base64,${highlightimage}`}}
+                            style={styles.pictureBox}
+                            resizeMode="contain"
+                            />
+                        ) : (
+                            <Text style = {styles.pictureBox}>Loading image...</Text> // optional placeholder
+                        )}
+                    </View>
                     <View style={styles.predictionContainer}>
-                        <Text style = {styles.modelTitle}>Prediction: {predicted.result}</Text>
-                        <Text style = {styles.modelSubtitle}>Confidence: {predicted.result}</Text>
-                        <Text style = {styles.modelSubtitle}>Severity: {predicted.result}</Text>
-                        <Text style = {styles.modelSubtitle}>Cost of repair: {predicted.result}</Text>
+                        <Text style = {styles.modelTitle}>Prediction: {predicted}</Text>
+                        <Text style = {styles.modelSubtitle}>Severity: {severity}</Text>
+                        <Text style = {styles.modelSubtitle}>Confidence Score: {confidencescore}</Text>
                     </View>
                     
                     <Text style = {styles.confirmationText}>Is the Prediction Correct?</Text>
@@ -160,7 +233,7 @@ export default function Camera({navigation}){
                     <TouchableOpacity
                         style={[styles.confirmButton, styles.noButton]}
                         onPress={() => 
-                            navigation.navigate("Confirmation")}
+                            get_all_information()}
                     >
                         <Text style={styles.confirmButtonText}>✗ No</Text>
                     </TouchableOpacity>
@@ -305,5 +378,10 @@ const styles = StyleSheet.create({
         color: colors.surface,
         fontSize: 16,
         fontWeight: '600',
+    },
+    modalImage: {
+        width: 300,
+        height: 300,
+        borderRadius: 8,
     },
 })
