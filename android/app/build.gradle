@@ -86,7 +86,7 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.aider"
+    namespace 'com.deija.AIDER'
     defaultConfig {
         applicationId 'com.deija.AIDER'
         minSdkVersion rootProject.ext.minSdkVersion

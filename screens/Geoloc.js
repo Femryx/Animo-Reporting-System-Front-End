@@ -47,7 +47,7 @@ export default function MapScreen({ navigation, route }) {
         )
         console.log(formdata)
         try{
-            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/store_the_post',
             {
                 method:'POST',
                 body:formdata

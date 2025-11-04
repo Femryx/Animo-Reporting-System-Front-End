@@ -101,7 +101,7 @@ export default function Camera({navigation}){
         )
         console.log(formdata)
         try{
-            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/store_the_post',
             {
                 method:'POST',
                 body:formdata
@@ -127,7 +127,7 @@ export default function Camera({navigation}){
     }
     //Getting the Predictions
     const get_predictions = () =>{
-        fetch('http://192.168.5.108:5000/api/get_predictions',
+        fetch('https://back-end-server-v8fv.onrender.com/api/get_predictions',
             {
                 method:'POST',
                 headers:{

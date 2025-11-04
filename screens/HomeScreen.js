@@ -10,7 +10,7 @@ export default function HomeScreen( {navigation}){
     const [dropdownVisible, setDropdownVisible] = useState(null)
     const get_post = async() =>{
         try{
-            const response = await fetch('http://192.168.5.108:5000/api',{
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api',{
                 method:'GET',
             });
             const json = await response.json();
@@ -37,7 +37,7 @@ export default function HomeScreen( {navigation}){
 
     const handleStatusChange = async(postId, newStatus) => {
         try{
-            const response = await fetch('http://192.168.5.108:5000/api/statuschange',{
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/statuschange',{
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

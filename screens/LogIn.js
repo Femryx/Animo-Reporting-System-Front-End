@@ -20,7 +20,7 @@ export default function Log({navigation}){
             return;
         }
         try{
-            const response = await fetch('http://192.168.5.108:5000/api/loginCheck',
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/loginCheck',
                 {
                     method: 'POST',
                     headers: {
@@ -55,7 +55,8 @@ export default function Log({navigation}){
         >
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Welcome</Text>
+                <Text style={styles.headerSubtitle}>Welcome</Text>
+                <Text style={styles.headerTitle}>Animo Reporting System</Text>
                 <Text style={styles.headerSubtitle}>Sign in to your account</Text>
             </View>
             
