@@ -5,11 +5,13 @@ import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors } from '../colors';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
 
 export default function MapScreen({ navigation, route }) {
     const [selectedLocation, setSelectedLocation] = useState(
       route.params?.postLocation || null
     );
+    const {token, prediction, severity, temppath, fileName_link, mode_notuse, correct} = route.params
     const [mode, setMode] = useState('pinpoint'); // Default mode is pinpoint
 
     // Get mode from navigation params
@@ -19,12 +21,45 @@ export default function MapScreen({ navigation, route }) {
         }
     }, [route.params?.mode]);
 
+    //X and y of the De Lasalle University Dasmarinas
     const defaultCenter = [14.324247,120.958614]
 
     const mapCenter = selectedLocation
       ? [selectedLocation.latitude, selectedLocation.longitude]
       : defaultCenter;
       
+    //If the predictions is correct sending it to the database
+    const post_database_data = async()=>{
+        const formdata = new FormData()
+        console.log('Formdata Created!')
+
+        formdata.append('token',token)
+        formdata.append('result',prediction)
+        formdata.append('severity',severity)
+        formdata.append('longitude',selectedLocation.longitude)
+        formdata.append('latitude',selectedLocation.latitude)
+        formdata.append('image',
+             {
+                uri: temppath,
+                name: fileName_link,
+                type:'image/jpg'
+           }
+        )
+        console.log(formdata)
+        try{
+            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
+            {
+                method:'POST',
+                body:formdata
+            }
+        )
+            const message = await response.json();
+            console.log(message.message)
+        }catch(error){
+            console.log(error)
+        }
+    }
+
     const handleMapPress = (event) => {
       if (mode === 'pinpoint') {
         // LeafletView gives event with lat/lng
@@ -33,9 +68,26 @@ export default function MapScreen({ navigation, route }) {
       }
     };
 
-    const handleSubmitLocation = () => {
+    //Modify for the Yes or no
+    const handleSubmitLocation = async() => {
         if (mode === 'pinpoint' && selectedLocation) {
-          navigation.navigate("Confirmation", { selectedLocation });
+          if (correct === "Yes"){
+            await post_database_data()
+            await FileSystem.deleteAsync(temppath,{idempotent:true})
+            console.log("temporary file has been deleted and posted to the database!")
+            navigation.navigate("Home")
+          }else if(correct === "No"){
+            const longitude = selectedLocation.longitude
+            const latitude = selectedLocation.latitude
+            navigation.navigate("Confirmation", { 
+              token,
+              temppath,
+              fileName_link,
+              longitude,
+              latitude
+            })
+          }
+          ;
         }
     };
 

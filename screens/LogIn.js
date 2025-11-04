@@ -6,9 +6,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function Log({navigation}){
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [success,setsuccess] = useState(false);
 
     const handleLogin = async() => {
+
+        if (!email || !password) {
+            Alert.alert("Error", "Please fill in all fields");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert("Error", "Please enter a valid email address");
+            return;
+        }
         try{
             const response = await fetch('http://192.168.5.108:5000/api/loginCheck',
                 {
@@ -24,30 +34,17 @@ export default function Log({navigation}){
             )
             const data = await response.json();
             const token = data.token;
-            setsuccess(data.success)
-            await AsyncStorage.setItem("jwt",token);
-            await AsyncStorage.setItem("role",data.role);
+            if(data.success){
+                await AsyncStorage.setItem("jwt",token);
+                await AsyncStorage.setItem("role",data.role);
+                // Navigate to home screen
+                navigation.navigate("Home");
+            }
+
         }catch(error){
             console.log(error)
         }
-
         
-        if (!email || !password) {
-            Alert.alert("Error", "Please fill in all fields");
-            return;
-        }
-        // // Basic email validation
-        // // Need ung mga to para maka progress ng projeect
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            Alert.alert("Error", "Please enter a valid email address");
-            return;
-        }
-
-        if(success == true){
-            // Navigate to home screen
-            navigation.navigate("Home");
-        }
     };
 
     return(

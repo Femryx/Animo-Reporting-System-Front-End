@@ -7,10 +7,9 @@ import * as FileSystem from 'expo-file-system';
 
 const Seperator = () => <View style = {styles.seperator}/>;
 const Confirmation = ({route,navigation}) => {
-    const { token, temppath, filename_link, longitude, latitude } = route.params;
+    const {token, temppath, filename_link, longitude, latitude } = route.params;
     const [damage,setDamage] = useState([]);
     const [damagetype,setDamagetype] = useState("");
-    const [severity,setSeverity] = useState("");
     const [possiblecause,setPossiblecause] = useState("");
     const [recommendation,setRecommendation] = useState("");
     const [selectedSeverity, setSelectedSeverity] = useState("");
@@ -36,16 +35,25 @@ const Confirmation = ({route,navigation}) => {
             console.log(error)
         }
     }
+
+    const generateRandomNumber_for_name = () => {
+        const min = 1; // Minimum value
+        const max = 10000000000; // Maximum value
+        // Generate random number in the range [min, max]
+        const number = Math.floor(Math.random() * (max - min + 1)) + min;
+        return number
+    };
+
     const sending_database = async() =>{
         const formdata = new FormData();
         //This is for known damage
-        if(damagetype === "" && selected !== null && recommendation !== null && possiblecause !== null && severity !== null){
+        if(damagetype === "" && selected !== null && recommendation !== null && possiblecause !== null && selectedSeverity !== null){
             formdata.append('latitude', latitude)
-            formdata.append('longitude',latitude)
+            formdata.append('longitude',longitude)
             formdata.append('image',
                 {
                     uri:temppath,
-                    name:filename_link,
+                    name:filename_link || `${generateRandomNumber_for_name()}.jpg`,
                     type:'image/jpg',
                 }
             );
@@ -55,13 +63,13 @@ const Confirmation = ({route,navigation}) => {
             formdata.append('Recommendation',recommendation)
             formdata.append('possiblecause',possiblecause)
         //this part is the new data    
-        }else if(damagetype !== null && selected === "" && recommendation !== null && possiblecause !== null && severity !== null){
+        }else if(damagetype !== null && selected === "" && recommendation !== null && possiblecause !== null && selectedSeverity !== null){
             formdata.append('latitude', latitude)
             formdata.append('longitude',longitude)
             formdata.append('image',
                 {
                     uri:temppath,
-                    name:filename_link,
+                    name:filename_link || `${generateRandomNumber_for_name()}.jpg`,
                     type:'image/jpg'
                 }
             )
@@ -73,11 +81,12 @@ const Confirmation = ({route,navigation}) => {
         }else if(damagetype !== "" && selected !== ""){
             Alert.alert("Both Selected List Damage and Input Damage has value, Please Choose One");
             return;
-        }else if(recommendation == null || possiblecause == null || severity == null){
+        }else if(recommendation == null || possiblecause == null || selectedSeverity == null){
             Alert.alert("Make sure to have Input!")
             return;
         }
         console.log(formdata)
+        console.log(temppath)
         //Sending it to the database
         try{
             const response = await fetch('http://192.168.5.108:5000/api/new_data',
@@ -87,7 +96,7 @@ const Confirmation = ({route,navigation}) => {
                 }
             )
             const message = await response.json();
-            console.log(message.message); 
+            console.log(message); 
         }catch(err){
             console.log(err)
         }

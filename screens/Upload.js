@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from "expo-image-picker";
 import { colors } from '../colors';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Separator = () => <View style={styles.separator}/>;
 
@@ -22,18 +24,20 @@ const Upload = ({navigation}) => {
     const [uploading, setUploading] = useState(false);
     const [imageInfo, setImageInfo] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
+
+    //Information for the passing if ever it is false or true
     const [prediction,setprediction] = useState("");
     const [severity,setSeverity] = useState("");
     const [confidence,setConfidence] = useState(0);
     const [highlightimage,sethighlightimage] = useState();
+    //Image
     const formdata = new FormData()
+
     const get_highlights_image = async(image_url)=>{
         console.log("Sample1")
         const base64Image = await FileSystem.readAsStringAsync(image_url, {
             encoding: FileSystem.EncodingType.Base64,
         });
-        // console.log(base64Image)
-        console.log('sample2')
         const response = await fetch('https://serverless.roboflow.com/projects-lkhtb/workflows/detect-count-and-visualize', {
             method: 'POST',
             headers: {
@@ -49,40 +53,10 @@ const Upload = ({navigation}) => {
                 }
             })
         });
-        console.log('sample3')
         const result = await response.json();
         sethighlightimage(result.outputs[0].output_image.value);
         console.log(result)
-        // console.log(result);
         console.log('done')
-    }
-    //If the predictions is correct sending it to the database
-    const post_database_data = async()=>{
-        formdata.append('image',
-           {
-            uri: photolink,
-            name: imageInfo?.fileName,
-            type:'image/jpg'
-           }
-        )
-        
-        formdata.append('result',predicted.result)
-        formdata.append('longitude',longitude)
-        formdata.append('latitude',latitude)
-        console.log(formdata)
-        try{
-            const response = await fetch('http://192.168.82.213:5000/api/store_the_post',
-            {
-                method:'POST',
-                body:formdata
-            }
-        )
-            const message = await response.json();
-            console.log(message.message)
-        }catch(error){
-            console.log(error)
-        }
-        navigation.navigate("Home")
     }
 
     // Request permissions for accessing media library
@@ -120,17 +94,16 @@ const Upload = ({navigation}) => {
                 fileSize: asset.fileSize,
                 fileName: asset.fileName || 'image.jpg'
             });
-            get_highlights_image(selectImage);
         };
     }
-    const get_predictions = () =>{
+    const get_predictions = async() =>{
         formdata.append('image', {
         uri: selectedImage,
         type: 'image/jpg',
         name: imageInfo?.fileName || 'image.jpg',
         });
 
-        fetch('http://192.168.5.108:5000/api/get_predictions',
+        const response = await fetch('http://192.168.5.108:5000/api/get_predictions',
             {
                 method:'POST',
                 headers:{
@@ -138,17 +111,12 @@ const Upload = ({navigation}) => {
                 },
                 body:formdata,
             }
-        )
-        .then(response => response.json())
-        .then(json =>{
-            setprediction(json.result)
-            setConfidence(json.score)
-            setSeverity(json.severity)
-            console.log(json)
-        })
-        .catch(error =>{
-            console.log(error)
-        })
+        );
+        const json = await response.json();
+        setprediction(json.result);
+        setConfidence(json.score);
+        setSeverity(json.severity);
+        return json;
     }
     // Upload image function - now shows modal instead of direct upload
     const uploadImage = async () => {
@@ -156,19 +124,49 @@ const Upload = ({navigation}) => {
             Alert.alert('No Image', 'Please select an image first!');
             return;
         }
-        await get_predictions();
+        const json = await get_predictions();
+        get_highlights_image(selectedImage);
         // Show modal for prediction/confirmation
-        if (prediction){
+        if (json.result){
             setIsModalVisible(true);
         }
     };
+
+    const passing_data = async(correct)=>{
+        try{
+            const temppath = FileSystem.documentDirectory + imageInfo?.fileName
+
+            //Copying
+            await FileSystem.copyAsync({
+                from: selectedImage,
+                to: temppath,
+            })
+
+            //filename
+            const fileName_link = imageInfo?.fileName
+
+            const token = await AsyncStorage.getItem('jwt');
+            navigation.navigate("Map",{
+                token,
+                prediction,
+                severity,
+                temppath,
+                fileName_link,
+                mode: "pinpoint",
+                correct
+            })
+        }catch(err){
+            console.log(err)
+        }
+    }
     // Clear selected image
     const clearImage = () => {
         setSelectedImage(null);
+        sethighlightimage(null);
         setImageInfo(null);
-        setPredicted("");
-        setpredictedscore(0);
-        formdata = new FormData(); // Reset
+        setprediction("");
+        setConfidence(0);
+        setSeverity("");
     };
     return (
         <SafeAreaView style={styles.container}>
@@ -233,16 +231,16 @@ const Upload = ({navigation}) => {
                     <View style={styles.popUp}>
                         <View style={styles.popUpElements}>
                             <View style={styles.pictureBox}>
-                                {selectedImage && (
-                                    <Image source={{ uri: selectedImage }} style={styles.modalImage} />
+                                {highlightimage ? (
+                                    <Image source={{ uri: `data:image/jpeg;base64,${highlightimage}` }} style={styles.modalImage} />
+                                ):(
+                                    <Text style = {styles.pictureBox}>Loading image...</Text> // optional placeholder
                                 )}
                             </View>
-                            
                             <View style={styles.predictionContainer}>
                                 <Text style={styles.modelTitle}>Prediction: {prediction}</Text>
                                 <Text style={styles.modelSubtitle}>Severity: {severity}</Text>
                                 <Text style={styles.modelSubtitle}>Confidence: {confidence}</Text>
-                                <Text style={styles.modelSubtitle}>Is the Prediction Correct?</Text>
                             </View>
                             
                             <Text style={styles.confirmationText}>Is the Prediction Correct?</Text>
@@ -254,17 +252,24 @@ const Upload = ({navigation}) => {
                             <TouchableOpacity
                                 style={[styles.confirmButton, styles.yesButton]}
                                 onPress={async() => 
-                                    //need to upload it to the database post
-                                    navigation.navigate("Home")
+                                    {
+                                        setIsModalVisible(false),
+                                        clearImage(),
+                                        passing_data('Yes')
+                                    }
                                 }
                             >
                                 <Text style={styles.confirmButtonText}>✓ Yes</Text>
                             </TouchableOpacity>
-                            
                             <TouchableOpacity
                                 style={[styles.confirmButton, styles.noButton]}
                                 onPress={() => 
-                                    navigation.navigate("Confirmation", )}
+                                    {
+                                        setIsModalVisible(false),
+                                        clearImage(),
+                                        passing_data('No')
+                                    }   
+                                }
                             >
                                 <Text style={styles.confirmButtonText}>✗ No</Text>
                             </TouchableOpacity>
