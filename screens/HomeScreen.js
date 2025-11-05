@@ -10,7 +10,7 @@ export default function HomeScreen( {navigation}){
     const [dropdownVisible, setDropdownVisible] = useState(null)
     const get_post = async() =>{
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api',{
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api',{
                 method:'GET',
             });
             const json = await response.json();
@@ -37,7 +37,7 @@ export default function HomeScreen( {navigation}){
 
     const handleStatusChange = async(postId, newStatus) => {
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/statuschange',{
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/statuschange',{
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -54,6 +54,26 @@ export default function HomeScreen( {navigation}){
         setDropdownVisible(null);
 
     };
+
+    const deleting_post = async(postId) => {
+        try{
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/delete_post',{
+                method: 'DELETE',
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    id: postId
+                })
+            })
+            const json = await response.json()
+            console.log(json)
+        }catch(error){
+            console.log(error)
+        }
+
+        get_post();
+    }
 
     const toggleDropdown = (postId) => {
         setDropdownVisible(dropdownVisible === postId ? null : postId);
@@ -103,26 +123,63 @@ export default function HomeScreen( {navigation}){
                                 ):(
                                     <Text style={[
                                         styles.statusDropdown,
-                                        (post[post.id] || post.status) === 'Complete' && styles.statusTextComplete
+                                        (post[post.id] || post.status) === 'Complete' && styles.statusDropdownComplete
                                     ]}>{post[post.id] || post.status}</Text>
                                 )}
                             </View>
                             
                             <View style={styles.postContent}>
-                                <Text style = {styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
-                                <Text style = {styles.recommendation}>Severity: {post.Severity}</Text>
-                                <Text style = {styles.recommendation}>Recommendation Repair:  
-                                    {Array.isArray(JSON.parse(post.recommendation_repair)) &&
-                                    JSON.parse(post.recommendation_repair).map((item, index) => (
-                                    <Text key={index} style={styles.recommendation}> {item}, </Text>
-                                    ))
-                                }</Text>
-                                <Text style = {styles.recommendation}>Possible Cause:
-                                    {Array.isArray(JSON.parse(post.possible_cause)) &&
-                                    JSON.parse(post.possible_cause).map((item,index) => (
-                                        <Text key = {index} style = {styles.recommendation}> {item}, </Text>
-                                    ))}
-                                </Text>
+                               {role === "Admin" ? (
+                                <>
+                                    <Text style={styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
+                                    <Text style={styles.recommendation}>Severity: {post.Severity}</Text>
+
+                                    <Text style={styles.recommendation}>
+                                        Recommendation Repair:
+                                        {Array.isArray(JSON.parse(post.recommendation_repair)) &&
+                                            JSON.parse(post.recommendation_repair).map((item, index) => (
+                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
+                                            ))}
+                                    </Text>
+
+                                    <Text style={styles.recommendation}>
+                                        Possible Cause:
+                                        {Array.isArray(JSON.parse(post.possible_cause)) &&
+                                            JSON.parse(post.possible_cause).map((item, index) => (
+                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
+                                            ))}
+                                    </Text>
+                                        <TouchableOpacity
+                                            style={styles.submitButton}
+                                            onPress={() => deleting_post(post.id)}
+                                        >
+                                            <Text style={styles.submitButtonText}>Delete</Text>
+                                        </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
+                                    <Text style={styles.recommendation}>Severity: {post.Severity}</Text>
+
+                                    <Text style={styles.recommendation}>
+                                        Recommendation Repair:
+                                        {Array.isArray(JSON.parse(post.recommendation_repair)) &&
+                                            JSON.parse(post.recommendation_repair).map((item, index) => (
+                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
+                                            ))}
+                                    </Text>
+
+                                    <Text style={styles.recommendation}>
+                                        Possible Cause:
+                                        {Array.isArray(JSON.parse(post.possible_cause)) &&
+                                            JSON.parse(post.possible_cause).map((item, index) => (
+                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
+                                            ))}
+                                    </Text>
+                                </>
+                            )}
+
+                                
                             </View>
                         </TouchableOpacity>
                     );
@@ -408,6 +465,29 @@ const styles = StyleSheet.create({
     bottomButtonText: {
         color: colors.surface,
         fontSize: 12,
+        fontWeight: '600',
+    },
+        submitSection: {
+        marginTop: 20,
+        marginBottom: 30,
+    },
+     submitButton: {
+        backgroundColor: 'red',
+        borderRadius: 15,
+        paddingVertical: 18,
+        alignItems: 'center',
+        shadowColor: colors.primaryLight,
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    submitButtonText: {
+        color: colors.surface,
+        fontSize: 18,
         fontWeight: '600',
     },
 })

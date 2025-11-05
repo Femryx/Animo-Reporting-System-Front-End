@@ -20,7 +20,7 @@ export default function Log({navigation}){
             return;
         }
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/loginCheck',
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/loginCheck',
                 {
                     method: 'POST',
                     headers: {
@@ -199,4 +199,5 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         textAlign: "center",
     },
+
 })

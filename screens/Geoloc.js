@@ -47,7 +47,7 @@ export default function MapScreen({ navigation, route }) {
         )
         console.log(formdata)
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/store_the_post',
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/store_the_post',
             {
                 method:'POST',
                 body:formdata

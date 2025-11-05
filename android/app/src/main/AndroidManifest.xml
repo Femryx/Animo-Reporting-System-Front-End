@@ -30,6 +30,7 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="myapp"/>
         <data android:scheme="com.deija.AIDER"/>
+        <data android:scheme="exp+aider"/>
       </intent-filter>
     </activity>
   </application>

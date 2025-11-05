@@ -101,7 +101,7 @@ export default function Camera({navigation}){
         )
         console.log(formdata)
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/store_the_post',
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/store_the_post',
             {
                 method:'POST',
                 body:formdata
@@ -127,7 +127,7 @@ export default function Camera({navigation}){
     }
     //Getting the Predictions
     const get_predictions = () =>{
-        fetch('https://back-end-server-v8fv.onrender.com/api/get_predictions',
+        fetch('https://thesisprojectbackendserver-production.up.railway.app/api/get_predictions',
             {
                 method:'POST',
                 headers:{

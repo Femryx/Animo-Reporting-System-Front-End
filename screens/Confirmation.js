@@ -24,7 +24,7 @@ const Confirmation = ({route,navigation}) => {
     const [selected, setSelected] = useState("");
     const get_folder_name = async() =>{
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/get_folder_name',
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/get_folder_name',
                 {
                     method:'GET',
                 }
@@ -89,7 +89,7 @@ const Confirmation = ({route,navigation}) => {
         console.log(temppath)
         //Sending it to the database
         try{
-            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/new_data',
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/new_data',
                  {
                 method: 'POST',
                 body:formdata,

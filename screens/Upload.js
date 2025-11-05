@@ -103,7 +103,7 @@ const Upload = ({navigation}) => {
         name: imageInfo?.fileName || 'image.jpg',
         });
 
-        const response = await fetch('http://192.168.5.108:5000/api/get_predictions',
+        const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/get_predictions',
             {
                 method:'POST',
                 headers:{
