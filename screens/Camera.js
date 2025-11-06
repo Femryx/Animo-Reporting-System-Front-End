@@ -13,7 +13,8 @@ export default function Camera({navigation}){
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [predicted, setpredicted] = useState();
     const [confidencescore, setConfidencescore] = useState(0);
-    const [severity,setSeverity] = useState("")
+    const [severity,setSeverity] = useState("");
+    const [severityscore, setSeverityscore] = useState(0);
     const predictionformdata = new FormData()
     //For geolocation variable:
     const [location, setLocation] = useState(null);
@@ -141,6 +142,7 @@ export default function Camera({navigation}){
             setpredicted(json.result);
             setConfidencescore(json.score);
             setSeverity(json.severity);
+            setSeverityscore(json.severity_score)
         })
         .catch(error =>{
             console.log(error)
@@ -165,15 +167,10 @@ export default function Camera({navigation}){
             type:'image/jpg'
            }
         )
-        // console.log(predictionformdata)
-        //getting the predictions
-        get_predictions();
-        //after the predictions:
-        console.log('sample')
+
+        await get_predictions();
         get_highlights_image(photo_link);
-        //this gets the geolocation
         await get_geolocation();
-        //after getting the other requirements it opens the modal
         setIsModalVisible(true);
       };
     useEffect(() => {
@@ -212,7 +209,8 @@ export default function Camera({navigation}){
                     <View style={styles.predictionContainer}>
                         <Text style = {styles.modelTitle}>Prediction: {predicted}</Text>
                         <Text style = {styles.modelSubtitle}>Severity: {severity}</Text>
-                        <Text style = {styles.modelSubtitle}>Confidence Score: {confidencescore}</Text>
+                        <Text style={styles.modelSubtitle}>Severity Score: {Math.round(severityscore)}%</Text>
+                        <Text style={styles.modelSubtitle}>Confidence: {Math.round(confidence)}%</Text>
                     </View>
                     
                     <Text style = {styles.confirmationText}>Is the Prediction Correct?</Text>

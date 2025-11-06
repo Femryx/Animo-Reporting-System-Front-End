@@ -29,6 +29,7 @@ const Upload = ({navigation}) => {
     const [prediction,setprediction] = useState("");
     const [severity,setSeverity] = useState("");
     const [confidence,setConfidence] = useState(0);
+    const [severityscore, setSeverityScore] = useState(0);
     const [highlightimage,sethighlightimage] = useState();
     //Image
     const formdata = new FormData()
@@ -116,6 +117,7 @@ const Upload = ({navigation}) => {
         setprediction(json.result);
         setConfidence(json.score);
         setSeverity(json.severity);
+        setSeverityScore(json.severity_score);
         return json;
     }
     // Upload image function - now shows modal instead of direct upload
@@ -240,9 +242,9 @@ const Upload = ({navigation}) => {
                             <View style={styles.predictionContainer}>
                                 <Text style={styles.modelTitle}>Prediction: {prediction}</Text>
                                 <Text style={styles.modelSubtitle}>Severity: {severity}</Text>
-                                <Text style={styles.modelSubtitle}>Confidence: {confidence}</Text>
+                                <Text style={styles.modelSubtitle}>Severity Score: {Math.round(severityscore)}%</Text>
+                                <Text style={styles.modelSubtitle}>Confidence: {Math.round(confidence)}%</Text>
                             </View>
-                            
                             <Text style={styles.confirmationText}>Is the Prediction Correct?</Text>
                         </View>
                         
