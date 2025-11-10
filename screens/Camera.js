@@ -210,7 +210,7 @@ export default function Camera({navigation}){
                         <Text style = {styles.modelTitle}>Prediction: {predicted}</Text>
                         <Text style = {styles.modelSubtitle}>Severity: {severity}</Text>
                         <Text style={styles.modelSubtitle}>Severity Score: {Math.round(severityscore)}%</Text>
-                        <Text style={styles.modelSubtitle}>Confidence: {Math.round(confidence)}%</Text>
+                        <Text style={styles.modelSubtitle}>Confidence: {Math.round(confidencescore)}%</Text>
                     </View>
                     
                     <Text style = {styles.confirmationText}>Is the Prediction Correct?</Text>

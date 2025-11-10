@@ -89,7 +89,10 @@ export default function HomeScreen( {navigation}){
         <SafeAreaView style = {styles.safeContainer}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             
-            <ScrollView style = {styles.scrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+            style = {styles.scrollView}
+            contentContainerStyle = {{paddingBottom: 120}}
+            showsVerticalScrollIndicator={false}>
                 {post.map((post) => {
                     return (
                         <TouchableOpacity
