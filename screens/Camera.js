@@ -68,15 +68,25 @@ export default function Camera({navigation}){
                 to: temppath,
             });
             const token = await AsyncStorage.getItem('jwt');
-            setTimeout(()=>{
-                navigation.navigate("Confirmation",{
-                    token,
-                    temppath,
-                    filename_link,
-                    longitude,
-                    latitude,
-                });
-            }, 0)
+
+            navigation.navigate("Confirmation",{
+                token,
+                temppath,
+                filename_link,
+                longitude,
+                latitude,
+            });
+            // Reset all relevant state
+            setPhotolink(null);
+            setFilename(null);
+            setpredicted(null);
+            setConfidencescore(0);
+            setSeverity("");
+            setSeverityscore(0);
+            sethighlightimage(null);
+            setIsModalVisible(false)
+            // Clear the FormData if needed
+            predictionformdata.delete?.('image'); // safe if FormData supports 
         }catch(err){
             console.log(err)
         }
@@ -113,6 +123,18 @@ export default function Camera({navigation}){
         }catch(error){
             console.log(error)
         }
+        // Reset all relevant state
+        setPhotolink(null);
+        setFilename(null);
+        setpredicted(null);
+        setConfidencescore(0);
+        setSeverity("");
+        setSeverityscore(0);
+        sethighlightimage(null);
+
+        // Clear the FormData if needed
+        predictionformdata.delete?.('image'); // safe if FormData supports 
+        setIsModalVisible(false)
         navigation.navigate("Home")
     }
     //Getting the location
@@ -236,6 +258,29 @@ export default function Camera({navigation}){
                         <Text style={styles.confirmButtonText}>✗ No</Text>
                     </TouchableOpacity>
                 </View>
+                 <TouchableOpacity
+                        style={[styles.retakebutton]}
+                        onPress={() => 
+                        {
+                            // Reset all relevant state
+                            setPhotolink(null);
+                            setFilename(null);
+                            setpredicted(null);
+                            setConfidencescore(0);
+                            setSeverity("");
+                            setSeverityscore(0);
+                            sethighlightimage(null);
+
+                            // Clear the FormData if needed
+                            predictionformdata.delete?.('image'); // safe if FormData supports delete
+
+                            // Close the modal
+                            setIsModalVisible(false);
+                        }
+                        }
+                    >
+                        <Text style={styles.confirmButtonText}>Retake Photo</Text>
+                </TouchableOpacity>
             </View>
         </View>
         </Modal>
@@ -382,4 +427,28 @@ const styles = StyleSheet.create({
         height: 300,
         borderRadius: 8,
     },
+    confirmationText_retake:{
+        color: '#fff',          // white text
+        fontSize: 16,           // slightly bigger
+        fontWeight: '700',      // bolder for emphasis
+        textAlign: 'center',
+    },
+    retake: {
+        backgroundColor: 'blue'
+    },
+    retakebutton: {
+        flex: 1,
+        paddingVertical: 15,
+        paddingHorizontal: 10,
+        borderRadius: 15,
+        marginHorizontal: 20,
+        marginVertical: 65,      // reduced to fit nicely under the other buttons
+        alignItems: 'center',
+        backgroundColor: '#007BFF', // blue color
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        elevation: 4,
+    }
 })

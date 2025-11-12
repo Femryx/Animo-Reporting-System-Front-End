@@ -24,6 +24,7 @@ const Upload = ({navigation}) => {
     const [uploading, setUploading] = useState(false);
     const [imageInfo, setImageInfo] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [invalidFileModal, setInvalidFileModal] = useState(false);
 
     //Information for the passing if ever it is false or true
     const [prediction,setprediction] = useState("");
@@ -89,6 +90,13 @@ const Upload = ({navigation}) => {
         if (!result.canceled && result.assets[0]) {
             const asset = result.assets[0];
             setSelectedImage(asset.uri);
+            const fileName = asset.fileName || asset.uri.split('/').pop();
+
+            const lowerFile = fileName.toLowerCase();
+            if (!lowerFile.endsWith('.jpeg')) {
+                setInvalidFileModal(true); // show pop-up
+                return;
+            }
             setImageInfo({
                 width: asset.width,
                 height: asset.height,

@@ -8,6 +8,9 @@ export default function HomeScreen( {navigation}){
     const [post,setpost] = useState([])
     const [role,setRole] = useState()
     const [dropdownVisible, setDropdownVisible] = useState(null)
+    const [modelConfirmation, setmodelConfirmation] = useState(false)
+    const [postdelete,setpostdelete] = useState(0);
+    const [instructtion,setInstruction] = useState(true);
     const get_post = async() =>{
         try{
             const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api',{
@@ -55,25 +58,37 @@ export default function HomeScreen( {navigation}){
 
     };
 
-    const deleting_post = async(postId) => {
-        try{
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/delete_post',{
+    const deleting_post = async (postId, confirm) => {
+        if (!confirm) {
+            setmodelConfirmation(false);
+            return;
+        }
+
+        try {
+            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/delete_post', {
                 method: 'DELETE',
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({
-                    id: postId
-                })
-            })
-            const json = await response.json()
-            console.log(json)
-        }catch(error){
-            console.log(error)
+                body: JSON.stringify({id:postId}),
+            });
+
+            // Check if response is JSON
+            const text = await response.text(); // get raw text
+            try {
+                const json = JSON.parse(text);
+                console.log(json);
+            } catch {
+                console.log("Server returned non-JSON:", text);
+            }
+
+        } catch (error) {
+            console.log("Fetch error:", error);
         }
 
+        setmodelConfirmation(false);
         get_post();
-    }
+    };
 
     const toggleDropdown = (postId) => {
         setDropdownVisible(dropdownVisible === postId ? null : postId);
@@ -88,7 +103,41 @@ export default function HomeScreen( {navigation}){
     return(
         <SafeAreaView style = {styles.safeContainer}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-            
+            <Modal
+                transparent={true}
+                visible={instructtion}
+                animationType="fade"
+                onRequestClose={() => setInstruction(false)}
+            >
+            <View style={styles.instructionOverlay}>
+                <View style={styles.instructionBox}>
+                <Text style={styles.instructionTitle}>📘 Instruction Guide</Text>
+
+                <View style={styles.instructionSection}>
+                    <Text style={styles.instructionItem}>
+                    ➕ <Text style={styles.highlight}>“+” Button</Text> — Upload a photo and locate the damage on the map.
+                    </Text>
+                    <Text style={styles.instructionItem}>
+                    📷 <Text style={styles.highlight}>Camera Button</Text> — Take a photo of the damage (auto-geotagged).
+                    </Text>
+                </View>
+
+                <View style={styles.instructionNoteBox}>
+                    <Text style={styles.instructionNoteTitle}>💡 Additional Note</Text>
+                    <Text style={styles.instructionNote}>
+                    If the detected damage type is incorrect, press <Text style={styles.highlight}>“No”</Text> to go to the User Feedback page.
+                    </Text>
+                </View>
+
+                <TouchableOpacity
+                    style={styles.instructionButton}
+                    onPress={() => setInstruction(false)}
+                >
+                    <Text style={styles.instructionButtonText}>Got it!</Text>
+                </TouchableOpacity>
+                </View>
+            </View>
+            </Modal>
             <ScrollView 
             style = {styles.scrollView}
             contentContainerStyle = {{paddingBottom: 120}}
@@ -146,7 +195,7 @@ export default function HomeScreen( {navigation}){
                                     </Text>
 
                                     <Text style={styles.recommendation}>
-                                        Possible Cause:
+                                        Possible Effect:
                                         {Array.isArray(JSON.parse(post.possible_cause)) &&
                                             JSON.parse(post.possible_cause).map((item, index) => (
                                                 <Text key={index} style={styles.recommendation}> {item}, </Text>
@@ -154,7 +203,12 @@ export default function HomeScreen( {navigation}){
                                     </Text>
                                         <TouchableOpacity
                                             style={styles.submitButton}
-                                            onPress={() => deleting_post(post.id)}
+                                            onPress={() => 
+                                                {
+                                                    setpostdelete(post.id)
+                                                    setmodelConfirmation(true)
+                                                }
+                                            }
                                         >
                                             <Text style={styles.submitButtonText}>Delete</Text>
                                         </TouchableOpacity>
@@ -218,6 +272,33 @@ export default function HomeScreen( {navigation}){
                 </TouchableOpacity>
             </Modal>
 
+            <Modal
+                visible={modelConfirmation}
+                transparent={true} // Makes the background slightly dark
+                onRequestClose={() => setmodelConfirmation(false)}
+                animationType="slide"
+                >
+                <View style={styles.modalBackground}>
+                    <View style={styles.modalContainer}>
+                    <Text style={styles.modalTitle}>Are you sure you want to delete this post?</Text>
+                        <View style={styles.buttonContainer}>
+                            <TouchableOpacity
+                            style={[styles.button, styles.yesButton]}
+                            onPress={() => deleting_post(postdelete,true)}
+                            >
+                            <Text style={styles.buttonText}>Yes</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                            style={[styles.button, styles.noButton]}
+                            onPress={() => deleting_post(postdelete,false)}
+                            >
+                            <Text style={styles.buttonText}>No</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
             {/* Upload Button - Upper Left Corner */}
             <TouchableOpacity
                 style={styles.uploadButtonFloating}
@@ -474,7 +555,7 @@ const styles = StyleSheet.create({
         marginTop: 20,
         marginBottom: 30,
     },
-     submitButton: {
+    submitButton: {
         backgroundColor: 'red',
         borderRadius: 15,
         paddingVertical: 18,
@@ -493,4 +574,128 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
+    modalBackground: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)', // semi-transparent background
+    },
+    modalContainer: {
+        width: 300,
+        padding: 20,
+        borderRadius: 10,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+    },
+    button: {
+        flex: 1,
+        marginHorizontal: 5,
+        paddingVertical: 10,
+        borderRadius: 5,
+        alignItems: 'center',
+    },
+    yesButton: {
+        backgroundColor: 'red',
+    },
+    noButton: {
+        backgroundColor: 'gray',
+    },
+    buttonText: {
+        color: 'white',
+        fontWeight: 'bold',
+    },
+    instructionOverlay: {
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "rgba(0, 0, 0, 0.6)",
+  paddingHorizontal: 20,
+},
+
+instructionBox: {
+  width: "90%",
+  backgroundColor: "#fff",
+  borderRadius: 20,
+  padding: 25,
+  alignItems: "flex-start",
+  shadowColor: "#000",
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 8,
+},
+
+instructionTitle: {
+  fontSize: 20,
+  fontWeight: "bold",
+  color: colors.primary,
+  alignSelf: "center",
+  marginBottom: 15,
+},
+
+instructionSection: {
+  marginBottom: 20,
+},
+
+instructionItem: {
+  fontSize: 15,
+  color: colors.text,
+  marginBottom: 10,
+  lineHeight: 22,
+},
+
+highlight: {
+  fontWeight: "bold",
+  color: colors.secondary,
+},
+
+instructionNoteBox: {
+  backgroundColor: colors.primaryLight,
+  borderRadius: 12,
+  padding: 15,
+  marginBottom: 20,
+},
+
+instructionNoteTitle: {
+  fontWeight: "bold",
+  color: "#fff",
+  marginBottom: 5,
+  fontSize: 15,
+},
+instructionNote: {
+  color: "#fff",
+  fontSize: 14,
+  lineHeight: 20,
+},
+
+instructionButton: {
+  backgroundColor: colors.primary,
+  borderRadius: 10,
+  alignSelf: "center",
+  paddingVertical: 10,
+  paddingHorizontal: 30,
+  shadowColor: colors.primary,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.3,
+  shadowRadius: 6,
+  elevation: 5,
+},
+
+instructionButtonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 16,
+},
+
 })

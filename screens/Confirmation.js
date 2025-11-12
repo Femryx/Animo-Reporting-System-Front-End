@@ -139,7 +139,7 @@ const Confirmation = ({route,navigation}) => {
                             </View>
                         </View>
                         <Text style={styles.label}>
-                            Damage Name (If damage isn't in the list)
+                            Damage Name (If damage isn't in the Label)
                             </Text>
                         <TextInput
                         value = {damagetype}
@@ -163,7 +163,7 @@ const Confirmation = ({route,navigation}) => {
                             </View>
                         </View>
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Repair Recommendation</Text>
+                            <Text style={styles.label}>Repair Recommendation (Required)</Text>
                             <TextInput
                                 value = {recommendation}
                                 onChangeText={setRecommendation}
@@ -176,7 +176,7 @@ const Confirmation = ({route,navigation}) => {
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Possible Cause</Text>
+                            <Text style={styles.label}>Possible Effect (Required)</Text>
                             <TextInput
                                 value = {possiblecause}
                                 onChangeText={setPossiblecause}
