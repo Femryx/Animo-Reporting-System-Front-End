@@ -9,4 +9,4 @@ Animo-Reporting System is a reporting system that is integrated with Image Class
 
 2. Recommendation System - In this system it will provide solution and the developer utilized OpenAPI to provide solution depending in the damage types that was classified.
 
-3. Geotagging - 
+3. Geotagging - This features contains automatic locate where the damage based on where the users position it automatically locates the damage.
