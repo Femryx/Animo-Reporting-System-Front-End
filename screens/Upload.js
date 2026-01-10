@@ -25,6 +25,7 @@ const Upload = ({navigation}) => {
     const [imageInfo, setImageInfo] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [invalidFileModal, setInvalidFileModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     //Information for the passing if ever it is false or true
     const [prediction,setprediction] = useState("");
@@ -112,7 +113,7 @@ const Upload = ({navigation}) => {
         name: imageInfo?.fileName || 'image.jpg',
         });
 
-        const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/get_predictions',
+        const response = await fetch('http://192.168.5.108:5000/api/get_predictions',
             {
                 method:'POST',
                 headers:{
@@ -134,12 +135,14 @@ const Upload = ({navigation}) => {
             Alert.alert('No Image', 'Please select an image first!');
             return;
         }
+        setIsLoading(true);
         const json = await get_predictions();
-        get_highlights_image(selectedImage);
+        await get_highlights_image(selectedImage);
         // Show modal for prediction/confirmation
         if (json.result){
             setIsModalVisible(true);
         }
+        setIsLoading(false);
     };
 
     const passing_data = async(correct)=>{
@@ -180,6 +183,14 @@ const Upload = ({navigation}) => {
     };
     return (
         <SafeAreaView style={styles.container}>
+            {isLoading && (
+                <View style={styles.loadingOverlay}>
+                    <View style={styles.loadingBox}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={styles.loadingText}>Analyzing image...</Text>
+                    </View>
+                </View>
+            )}
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <View style={styles.content}>
                 <Text style={styles.title}>Upload Image</Text>
@@ -250,10 +261,11 @@ const Upload = ({navigation}) => {
                             <View style={styles.predictionContainer}>
                                 <Text style={styles.modelTitle}>Prediction: {prediction}</Text>
                                 <Text style={styles.modelSubtitle}>Severity: {severity}</Text>
-                                <Text style={styles.modelSubtitle}>Severity Score: {Math.round(severityscore)}%</Text>
-                                <Text style={styles.modelSubtitle}>Confidence: {Math.round(confidence)}%</Text>
+                                <Text style={styles.modelSubtitle}>
+                                Severity Score: {severityscore == null || isNaN(severityscore) ? 'Unknown' : `${Math.round(severityscore * 100)}%`}
+                                </Text>
+                                <Text style={styles.modelSubtitle}>Probability: {Math.round(confidence * 100)}%</Text>
                             </View>
-                            <Text style={styles.confirmationText}>Is the Prediction Correct?</Text>
                         </View>
                         
                         <Separator/>
@@ -269,9 +281,9 @@ const Upload = ({navigation}) => {
                                     }
                                 }
                             >
-                                <Text style={styles.confirmButtonText}>✓ Yes</Text>
+                                <Text style={styles.confirmButtonText}>Submit Report</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
+                            {/* <TouchableOpacity
                                 style={[styles.confirmButton, styles.noButton]}
                                 onPress={() => 
                                     {
@@ -282,7 +294,7 @@ const Upload = ({navigation}) => {
                                 }
                             >
                                 <Text style={styles.confirmButtonText}>✗ No</Text>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
                     </View>
                 </View>
@@ -508,5 +520,35 @@ const styles = StyleSheet.create({
         color: colors.surface,
         fontSize: 16,
         fontWeight: '600',
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+    },
+    loadingBox: {
+        backgroundColor: colors.surface,
+        paddingVertical: 30,
+        paddingHorizontal: 50,
+        borderRadius: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    loadingText: {
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 10,
     },
 });

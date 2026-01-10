@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import MapView, { PROVIDER_GOOGLE, PROVIDER_DEFAULT, Marker } from 'react-native-maps';
 // import { LeafletView } from 'react-native-leaflet-view';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors } from '../colors';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system';
 
 export default function MapScreen({ navigation, route }) {
+    const [processing, setProcessing] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState(
       route.params?.postLocation || null
     );
@@ -23,7 +24,6 @@ export default function MapScreen({ navigation, route }) {
 
     //X and y of the De Lasalle University Dasmarinas
     const defaultCenter = [14.324247,120.958614]
-
     const mapCenter = selectedLocation
       ? [selectedLocation.latitude, selectedLocation.longitude]
       : defaultCenter;
@@ -47,7 +47,7 @@ export default function MapScreen({ navigation, route }) {
         )
         console.log(formdata)
         try{
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/store_the_post',
+            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
             {
                 method:'POST',
                 body:formdata
@@ -70,6 +70,9 @@ export default function MapScreen({ navigation, route }) {
 
     //Modify for the Yes or no
     const handleSubmitLocation = async() => {
+        if (processing) return; // ignore extra clicks
+        setProcessing(true);    // lock the button
+        
         if (mode === 'pinpoint' && selectedLocation) {
           if (correct === "Yes"){
             await post_database_data()
@@ -89,6 +92,7 @@ export default function MapScreen({ navigation, route }) {
           }
           ;
         }
+        setProcessing(false);
     };
 
     const handleBackPress = () => {
@@ -128,9 +132,10 @@ export default function MapScreen({ navigation, route }) {
             `}}
 
           onMessage={(event) => {
-              const { latitude, longitude } = JSON.parse(event.nativeEvent.data);
-              handleMapPress({ lat: latitude, lng: longitude });
+                const { latitude, longitude } = JSON.parse(event.nativeEvent.data);
+                handleMapPress({ lat: latitude, lng: longitude });
             }}
+
             style={{ flex: 1 }}
           />
 
@@ -153,21 +158,21 @@ export default function MapScreen({ navigation, route }) {
             <View style={styles.submitContainer}>
               <TouchableOpacity
                 style={[
-                  styles.submitButton,
-                  !selectedLocation && styles.submitButtonDisabled
+                    styles.submitButton,
+                    (!selectedLocation || processing) && styles.submitButtonDisabled
                 ]}
                 onPress={handleSubmitLocation}
-                disabled={!selectedLocation}
-              >
+                disabled={!selectedLocation || processing}
+            >
                 <Text
-                  style={[
-                    styles.submitButtonText,
-                    !selectedLocation && styles.submitButtonTextDisabled
-                  ]}
+                    style={[
+                        styles.submitButtonText,
+                        (!selectedLocation || processing) && styles.submitButtonTextDisabled
+                    ]}
                 >
-                  ✅ Confirm Location
+                    {processing ? '⏳ Processing...' : '✅ Confirm Location'}
                 </Text>
-              </TouchableOpacity>
+            </TouchableOpacity>
             </View>
           )}
         </View>

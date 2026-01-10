@@ -20,7 +20,7 @@ export default function Log({navigation}){
             return;
         }
         try{
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/loginCheck',
+            const response = await fetch('https://thesisprojectbackendserver-main-production.up.railway.app/api/loginCheck',
                 {
                     method: 'POST',
                     headers: {

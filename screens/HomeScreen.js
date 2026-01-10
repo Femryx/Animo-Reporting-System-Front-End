@@ -3,17 +3,21 @@ import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
 import { colors } from '../colors';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 
 export default function HomeScreen( {navigation}){
     const [post,setpost] = useState([])
-    const [role,setRole] = useState()
+    const [role_account,setRole] = useState()
     const [dropdownVisible, setDropdownVisible] = useState(null)
     const [modelConfirmation, setmodelConfirmation] = useState(false)
     const [postdelete,setpostdelete] = useState(0);
     const [instructtion,setInstruction] = useState(true);
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [proofModalVisible, setProofModalVisible] = useState(false);
+    const [selectedProofImage, setSelectedProofImage] = useState(null);
     const get_post = async() =>{
         try{
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api',{
+            const response = await fetch('http://192.168.5.108:5000/api',{
                 method:'GET',
             });
             const json = await response.json();
@@ -36,26 +40,57 @@ export default function HomeScreen( {navigation}){
             setRole(await AsyncStorage.getItem("role"))
         }
         fetchrole()
+        const fetchBackendIP = async () => {
+            const ip = await AsyncStorage.getItem('backendIP');
+            if (ip) setBackendIP(ip);
+        };
+        fetchBackendIP();
     },[])
 
-    const handleStatusChange = async(postId, newStatus) => {
-        try{
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/statuschange',{
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    status: newStatus,
-                    id: postId,
-                })
-            })
-            const json = await response.json()
-            console.log(json);
-            get_post();
-        }catch(error){
-            console.log(error);
-        }
-        setDropdownVisible(null);
+        const handleStatusChange = async (postId, newStatus) => {
+        try {
+            const formData = new FormData();
+            formData.append("id", postId);
+            formData.append("status", newStatus);
 
+            if (newStatus === "Complete") {
+                
+                const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (!permission.granted) {
+                    alert("Permission to access photos is required!");
+                    return;
+                }
+
+                const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: false,
+                    quality: 1,
+                });
+
+                if (result.canceled) return;
+
+                const img = result.assets[0];
+
+                formData.append("complete_image", {
+                    uri: img.uri,
+                    type: "image/jpeg",
+                    name: img.fileName,
+                });
+            }
+
+            const response = await fetch("http://192.168.5.108:5000/api/statuschange", { 
+                method: "POST",
+                headers: { "Content-Type": "multipart/form-data" },
+                body: formData,
+            });
+
+            const json = await response.json();
+            console.log("SUCCESS:", json);
+            setDropdownVisible(null);
+            get_post();
+        } catch (error) {
+            console.log("ERROR:", error);
+        }
     };
 
     const deleting_post = async (postId, confirm) => {
@@ -65,7 +100,7 @@ export default function HomeScreen( {navigation}){
         }
 
         try {
-            const response = await fetch('https://thesisprojectbackendserver-production.up.railway.app/api/delete_post', {
+            const response = await fetch('http://192.168.5.108:5000/api/delete_post', {
                 method: 'DELETE',
                 headers: {
                     "Content-Type": "application/json",
@@ -104,45 +139,92 @@ export default function HomeScreen( {navigation}){
         <SafeAreaView style = {styles.safeContainer}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <Modal
+                animationType="slide"
+                transparent={true}
+                visible={proofModalVisible}
+                onRequestClose={() => setProofModalVisible(false)}
+            >
+                <View style={styles.modalBackground}>
+                    <View style={styles.modalContainer}>
+                        <Image
+                            source={{ uri: selectedProofImage }}
+                            style={styles.proofImage}
+                            resizeMode="contain"
+                        />
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => setProofModalVisible(false)}
+                        >
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+            <Modal
                 transparent={true}
                 visible={instructtion}
                 animationType="fade"
                 onRequestClose={() => setInstruction(false)}
             >
-            <View style={styles.instructionOverlay}>
-                <View style={styles.instructionBox}>
-                <Text style={styles.instructionTitle}>📘 Instruction Guide</Text>
+                <View style={styles.instructionOverlay}>
+                    <View style={styles.instructionBox}>
+                        <Text style={styles.instructionTitle}>📘 Instruction Guide</Text>
 
-                <View style={styles.instructionSection}>
-                    <Text style={styles.instructionItem}>
-                    ➕ <Text style={styles.highlight}>“+” Button</Text> — Upload a photo and locate the damage on the map.
-                    </Text>
-                    <Text style={styles.instructionItem}>
-                    📷 <Text style={styles.highlight}>Camera Button</Text> — Take a photo of the damage (auto-geotagged).
-                    </Text>
-                </View>
+                        <View style={styles.instructionSection}>
+                            <Text style={styles.instructionItem}>
+                                ➕ <Text style={styles.highlight}>“+” Button</Text> — Upload a photo and locate the damage on the map.
+                            </Text>
+                            <Text style={styles.instructionItem}>
+                                📷 <Text style={styles.highlight}>Camera Button</Text> — Take a photo of the damage (auto-geotagged).
+                            </Text>
+                        </View>
 
-                <View style={styles.instructionNoteBox}>
-                    <Text style={styles.instructionNoteTitle}>💡 Additional Note</Text>
-                    <Text style={styles.instructionNote}>
-                    If the detected damage type is incorrect, press <Text style={styles.highlight}>“No”</Text> to go to the User Feedback page.
-                    </Text>
-                </View>
+                        {role_account === "Admin" && (
+                            <>
+                                <View style={styles.instructionNoteBox}>
+                                    <Text style={styles.instructionNoteTitle}>💡 Additional Note (Admin): </Text>
+                                    <Text style={styles.instructionNote}>Once completed you will upload a proof of image that the damage was fixed.</Text>
+                                </View>
+                            </>
+                        )}
 
-                <TouchableOpacity
-                    style={styles.instructionButton}
-                    onPress={() => setInstruction(false)}
-                >
-                    <Text style={styles.instructionButtonText}>Got it!</Text>
-                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.instructionButton}
+                            onPress={() => setInstruction(false)}
+                        >
+                            <Text style={styles.instructionButtonText}>Got it!</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
             </Modal>
             <ScrollView 
             style = {styles.scrollView}
             contentContainerStyle = {{paddingBottom: 120}}
             showsVerticalScrollIndicator={false}>
-                {post.map((post) => {
+            <View style={styles.filterContainer}>
+                {["All", "In Progress", "Complete"].map((status) => (
+                    <TouchableOpacity
+                    key={status}
+                    style={[
+                        styles.filterButton,
+                        statusFilter === status && styles.filterButtonActive
+                    ]}
+                    onPress={() => setStatusFilter(status)}
+                    >
+                    <Text
+                        style={[
+                        styles.filterButtonText,
+                        statusFilter === status && styles.filterButtonTextActive
+                        ]}
+                    >
+                        {status}
+                    </Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+                {post
+                    .filter(p => statusFilter === "All" || (p.status === statusFilter))
+                    .map((post) => {
                     return (
                         <TouchableOpacity
                             style={styles.postBox}
@@ -155,88 +237,68 @@ export default function HomeScreen( {navigation}){
                                     source = {{uri:post.image_path}}
                                     style={styles.postImage}
                                 />
-                                {role === "Admin" ? (
-                                    <TouchableOpacity
-                                    style={[
-                                        styles.statusDropdown,
-                                        (post[post.id] || post.status) === 'Complete' && styles.statusDropdownComplete
-                                    ]}
-                                    onPress={() => toggleDropdown(post.id)}
-                                >
-                                    <Text style={[
-                                        styles.statusText,
-                                        (post[post.id] || post.status) === 'Complete' && styles.statusTextComplete
-                                    ]}>{post[post.id] || post.status}</Text>
-                                    <Text style={[
-                                        styles.dropdownArrow,
-                                        (post[post.id] || post.status) === 'Complete' && styles.dropdownArrowComplete
-                                    ]}>▼</Text>
-                                </TouchableOpacity>
-                                ):(
-                                    <Text style={[
-                                        styles.statusDropdown,
-                                        (post[post.id] || post.status) === 'Complete' && styles.statusDropdownComplete
-                                    ]}>{post[post.id] || post.status}</Text>
+                                {role_account === "Admin" ? (
+                                post.status === "Complete" && post.link_complete ? (
+                                        <TouchableOpacity 
+                                            style={[styles.statusDropdown, styles.statusDropdownComplete]} 
+                                        >
+                                            <Text style={[styles.statusTextComplete]}>Complete</Text>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <TouchableOpacity style={[styles.statusDropdown, post.status === 'Complete' && styles.statusDropdownComplete]} onPress={() => toggleDropdown(post.id)}>
+                                            <Text style={[styles.statusText, post.status === 'Complete' && styles.statusTextComplete]}>{post.status}</Text>
+                                            <Text style={[styles.dropdownArrow, post.status === 'Complete' && styles.dropdownArrowComplete]}>▼</Text>
+                                        </TouchableOpacity>
+                                    )
+                                ) : (
+                                    <Text style={[styles.statusDropdown, post.status === 'Complete' && styles.statusDropdownComplete]}>{post.status}</Text>
                                 )}
                             </View>
-                            
                             <View style={styles.postContent}>
-                               {role === "Admin" ? (
-                                <>
-                                    <Text style={styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
-                                    <Text style={styles.recommendation}>Severity: {post.Severity}</Text>
+                                <Text style={styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
+                                <Text style={styles.recommendation}>Severity: {post.Severity}</Text>
 
-                                    <Text style={styles.recommendation}>
-                                        Recommendation Repair:
-                                        {Array.isArray(JSON.parse(post.recommendation_repair)) &&
-                                            JSON.parse(post.recommendation_repair).map((item, index) => (
-                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
-                                            ))}
-                                    </Text>
+                                {role_account === "Admin" && (
+                                    <Text style={styles.recommendation}>Who will take action: {post.role_action}</Text>
+                                )}
 
-                                    <Text style={styles.recommendation}>
-                                        Possible Effect:
-                                        {Array.isArray(JSON.parse(post.possible_cause)) &&
-                                            JSON.parse(post.possible_cause).map((item, index) => (
-                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
-                                            ))}
-                                    </Text>
-                                        <TouchableOpacity
-                                            style={styles.submitButton}
-                                            onPress={() => 
-                                                {
-                                                    setpostdelete(post.id)
-                                                    setmodelConfirmation(true)
-                                                }
-                                            }
-                                        >
-                                            <Text style={styles.submitButtonText}>Delete</Text>
-                                        </TouchableOpacity>
-                                </>
-                            ) : (
-                                <>
-                                    <Text style={styles.damageType}>Damage Type: {post.Severity_Damage}</Text>
-                                    <Text style={styles.recommendation}>Severity: {post.Severity}</Text>
+                                <Text style={styles.recommendation}>
+                                    Recommendation Repair:
+                                    {/* {Array.isArray(JSON.parse(post.recommendation_repair)) &&
+                                        JSON.parse(post.recommendation_repair).map((item, index) => ( */}
+                                            <Text style={styles.recommendation}> {post.recommendation_repair} </Text>
+                                        {/* // ))} */}
+                                </Text>
 
-                                    <Text style={styles.recommendation}>
-                                        Recommendation Repair:
-                                        {Array.isArray(JSON.parse(post.recommendation_repair)) &&
-                                            JSON.parse(post.recommendation_repair).map((item, index) => (
-                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
-                                            ))}
-                                    </Text>
-
-                                    <Text style={styles.recommendation}>
-                                        Possible Cause:
-                                        {Array.isArray(JSON.parse(post.possible_cause)) &&
-                                            JSON.parse(post.possible_cause).map((item, index) => (
-                                                <Text key={index} style={styles.recommendation}> {item}, </Text>
-                                            ))}
-                                    </Text>
-                                </>
-                            )}
-
-                                
+                                <Text style={styles.recommendation}>
+                                    Possible Effect:
+                                    {/* {Array.isArray(JSON.parse(post.possible_cause)) &&
+                                        JSON.parse(post.possible_cause).map((item, index) => ( */}
+                                            <Text style={styles.recommendation}> {post.possible_cause}</Text>
+                                        {/* ))} */}
+                                </Text>
+                                {post.status === "Complete" && post.link_complete && (
+                                    <TouchableOpacity
+                                        style={styles.viewProofButton}
+                                        onPress={() => {
+                                            setSelectedProofImage(post.link_complete);
+                                            setProofModalVisible(true);
+                                        }}
+                                    >
+                                        <Text style={styles.viewProofText}>📷 View Proof</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {role_account === "Admin" && (
+                                    <TouchableOpacity
+                                        style={styles.submitButton}
+                                        onPress={() => {
+                                            setpostdelete(post.id);
+                                            setmodelConfirmation(true);
+                                        }}
+                                    >
+                                        <Text style={styles.submitButtonText}>Delete</Text>
+                                    </TouchableOpacity>
+                                )}
                             </View>
                         </TouchableOpacity>
                     );
@@ -443,19 +505,16 @@ const styles = StyleSheet.create({
     // Floating Upload Button - Upper Left Corner
     uploadButtonFloating: {
         position: 'absolute',
-        top: 20,
-        left: 20,
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        bottom: 80,   // just above your bottom navigation
+        alignSelf: 'center',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         backgroundColor: colors.secondary,
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: colors.secondary,
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 6,
@@ -616,86 +675,135 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     instructionOverlay: {
-  flex: 1,
-  justifyContent: "center",
-  alignItems: "center",
-  backgroundColor: "rgba(0, 0, 0, 0.6)",
-  paddingHorizontal: 20,
-},
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0, 0, 0, 0.6)",
+        paddingHorizontal: 20,
+        },
 
-instructionBox: {
-  width: "90%",
-  backgroundColor: "#fff",
-  borderRadius: 20,
-  padding: 25,
-  alignItems: "flex-start",
-  shadowColor: "#000",
-  shadowOpacity: 0.3,
-  shadowRadius: 10,
-  shadowOffset: { width: 0, height: 4 },
-  elevation: 8,
-},
+    instructionBox: {
+        width: "90%",
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        padding: 25,
+        alignItems: "flex-start",
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 8,
+    },
 
-instructionTitle: {
-  fontSize: 20,
-  fontWeight: "bold",
-  color: colors.primary,
-  alignSelf: "center",
-  marginBottom: 15,
-},
+    instructionTitle: {
+        fontSize: 20,
+        fontWeight: "bold",
+        color: colors.primary,
+        alignSelf: "center",
+        marginBottom: 15,
+    },
 
-instructionSection: {
-  marginBottom: 20,
-},
+    instructionSection: {
+        marginBottom: 20,
+    },
 
-instructionItem: {
-  fontSize: 15,
-  color: colors.text,
-  marginBottom: 10,
-  lineHeight: 22,
-},
+    instructionItem: {
+        fontSize: 15,
+        color: colors.text,
+        marginBottom: 10,
+        lineHeight: 22,
+    },
 
-highlight: {
-  fontWeight: "bold",
-  color: colors.secondary,
-},
+    highlight: {
+        fontWeight: "bold",
+        color: colors.secondary,
+    },
 
-instructionNoteBox: {
-  backgroundColor: colors.primaryLight,
-  borderRadius: 12,
-  padding: 15,
-  marginBottom: 20,
-},
+    instructionNoteBox: {
+        backgroundColor: colors.primaryLight,
+        borderRadius: 12,
+        padding: 15,
+        marginBottom: 20,
+    },
 
-instructionNoteTitle: {
-  fontWeight: "bold",
-  color: "#fff",
-  marginBottom: 5,
-  fontSize: 15,
-},
-instructionNote: {
-  color: "#fff",
-  fontSize: 14,
-  lineHeight: 20,
-},
+    instructionNoteTitle: {
+        fontWeight: "bold",
+        color: "#fff",
+        marginBottom: 5,
+        fontSize: 15,
+    },
+    instructionNote: {
+        color: "#fff",
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    instructionButton: {
+        backgroundColor: colors.primary,
+        borderRadius: 10,
+        alignSelf: "center",
+        paddingVertical: 10,
+        paddingHorizontal: 30,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 5,
+    },
 
-instructionButton: {
-  backgroundColor: colors.primary,
-  borderRadius: 10,
-  alignSelf: "center",
-  paddingVertical: 10,
-  paddingHorizontal: 30,
-  shadowColor: colors.primary,
-  shadowOffset: { width: 0, height: 3 },
-  shadowOpacity: 0.3,
-  shadowRadius: 6,
-  elevation: 5,
-},
-
-instructionButtonText: {
-  color: "#fff",
-  fontWeight: "bold",
-  fontSize: 16,
-},
-
+    instructionButtonText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 16,
+    },
+    filterContainer: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        marginBottom: 10,
+    },
+    filterButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 20,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    filterButtonActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    filterButtonText: {
+        color: colors.text,
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    filterButtonTextActive: {
+        color: colors.surface,
+    },
+    proofImage: 
+    { 
+        width: 300, 
+        height: 300, 
+        borderRadius: 10, 
+        marginBottom: 20 
+    },
+    closeButton: { 
+        backgroundColor: '#FF3333', 
+        paddingVertical: 10, 
+        paddingHorizontal: 20, 
+        borderRadius: 10 
+    },
+    closeButtonText: { 
+        color: '#fff', 
+        fontWeight: 'bold', 
+        textAlign: 'center' },
+    viewProofButton: { 
+        backgroundColor: '#0066FF', 
+        padding: 10, 
+        borderRadius: 15, 
+        marginVertical: 10 },
+    viewProofText: { 
+        color: '#fff', 
+        fontWeight: '600', 
+        textAlign: 'center' },
 })

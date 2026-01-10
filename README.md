@@ -1,76 +1,12 @@
-# AIDER - Damage Assessment App 👋
+# ANIMO - REPORTING SYSTEM - FrontEnd Development
+=================================================
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Animo-Reporting System is a reporting system that is integrated with Image Classification, Recommendation System, and Geotagging.
 
-## Map Configuration
+# What is this features that implemented in the Animo Reporting System?
 
-The app supports both Google Maps and default map providers:
+1. Image Classification - This is a model/AI Model that classifies damages but in this model that was utilized there's only two types of damages and two model that was utilized this are the one damage type model and one severity type model.
 
-### Using Default Maps (Recommended for Development)
-The app will automatically use the default map provider if no Google Maps API key is configured. This works out of the box without any additional setup.
+2. Recommendation System - In this system it will provide solution and the developer utilized OpenAPI to provide solution depending in the damage types that was classified.
 
-### Using Google Maps (Optional)
-To use Google Maps instead of the default provider:
-
-1. Get a Google Maps API key from [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable the Maps SDK for Android and/or iOS
-3. Replace `YOUR_GOOGLE_MAPS_API_KEY_HERE` in `app.json` with your actual API key:
-
-```json
-{
-  "expo": {
-    "extra": {
-      "googleMapsApiKey": "your_actual_api_key_here"
-    }
-  }
-}
-```
-
-4. Restart the development server: `npm start`
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+3. Geotagging - 
