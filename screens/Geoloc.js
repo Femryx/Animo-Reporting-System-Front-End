@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import MapView, { PROVIDER_GOOGLE, PROVIDER_DEFAULT, Marker } from 'react-native-maps';
-import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
+// import { LeafletView } from 'react-native-leaflet-view';
+import { StyleSheet, View, TouchableOpacity, Text, Alert } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { colors } from '../colors';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
 
 export default function MapScreen({ navigation, route }) {
-    const [selectedLocation, setSelectedLocation] = useState(null);
+    const [processing, setProcessing] = useState(false);
+    const [selectedLocation, setSelectedLocation] = useState(
+      route.params?.postLocation || null
+    );
+    const {token, prediction, severity, temppath, fileName_link, mode_notuse, correct} = route.params
     const [mode, setMode] = useState('pinpoint'); // Default mode is pinpoint
 
     // Get mode from navigation params
@@ -15,24 +22,77 @@ export default function MapScreen({ navigation, route }) {
         }
     }, [route.params?.mode]);
 
-    // Get API key for Google Maps
-    const googleMapsApiKey = Constants.expoConfig?.extra?.googleMapsApiKey;
-    const useGoogleMaps = googleMapsApiKey && googleMapsApiKey !== 'YOUR_GOOGLE_MAPS_API_KEY_HERE';
+    //X and y of the De Lasalle University Dasmarinas
+    const defaultCenter = [14.324247,120.958614]
+    const mapCenter = selectedLocation
+      ? [selectedLocation.latitude, selectedLocation.longitude]
+      : defaultCenter;
+      
+    //If the predictions is correct sending it to the database
+    const post_database_data = async()=>{
+        const formdata = new FormData()
+        console.log('Formdata Created!')
+
+        formdata.append('token',token)
+        formdata.append('result',prediction)
+        formdata.append('severity',severity)
+        formdata.append('longitude',selectedLocation.longitude)
+        formdata.append('latitude',selectedLocation.latitude)
+        formdata.append('image',
+             {
+                uri: temppath,
+                name: fileName_link,
+                type:'image/jpg'
+           }
+        )
+        console.log(formdata)
+        try{
+            const response = await fetch('http://192.168.5.108:5000/api/store_the_post',
+            {
+                method:'POST',
+                body:formdata
+            }
+        )
+            const message = await response.json();
+            console.log(message.message)
+        }catch(error){
+            console.log(error)
+        }
+    }
 
     const handleMapPress = (event) => {
-        // Only allow map interaction in pinpoint mode
-        if (mode === 'pinpoint') {
-            const { coordinate } = event.nativeEvent;
-            setSelectedLocation(coordinate);
-        }
+      if (mode === 'pinpoint') {
+        // LeafletView gives event with lat/lng
+        const { lat, lng } = event;
+        setSelectedLocation({ latitude: lat, longitude: lng });
+      }
     };
 
-    const handleSubmitLocation = () => {
-        if (selectedLocation && mode === 'pinpoint') {
-            // Here you would typically save the location data
-            // For now, just navigate back to home
-            navigation.navigate("Home");
+    //Modify for the Yes or no
+    const handleSubmitLocation = async() => {
+        if (processing) return; // ignore extra clicks
+        setProcessing(true);    // lock the button
+        
+        if (mode === 'pinpoint' && selectedLocation) {
+          if (correct === "Yes"){
+            await post_database_data()
+            await FileSystem.deleteAsync(temppath,{idempotent:true})
+            console.log("temporary file has been deleted and posted to the database!")
+            navigation.navigate("Home")
+          }else if(correct === "No"){
+            const longitude = selectedLocation.longitude
+            const latitude = selectedLocation.latitude
+            navigation.navigate("Confirmation", { 
+              token,
+              temppath,
+              fileName_link,
+              longitude,
+              latitude
+            })
+          }
+          ;
         }
+        setProcessing(false);
     };
 
     const handleBackPress = () => {
@@ -41,62 +101,82 @@ export default function MapScreen({ navigation, route }) {
 
     return (
         <View style={styles.container}>
-            <MapView
-                style={styles.map}
-                provider={useGoogleMaps ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-                showsUserLocation
-                showsMyLocationButton
-                onPress={handleMapPress}
-                scrollEnabled={mode === 'pinpoint'} // Disable scrolling in viewing mode
-                zoomEnabled={mode === 'pinpoint'}   // Disable zoom in viewing mode
-                rotateEnabled={mode === 'pinpoint'} // Disable rotation in viewing mode
-                apiKey={useGoogleMaps ? googleMapsApiKey : undefined}
+          <WebView
+            originWhitelist={['*']}
+            source={{ html: `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+                <style>html, body, #map { height: 100%; margin: 0; padding: 0; }</style>
+              </head>
+              <body>
+                <div id="map"></div>
+                <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+                <script>
+                  const map = L.map('map').setView([${mapCenter[0]}, ${mapCenter[1]}], 25);
+                  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                  }).addTo(map);
+
+                  let marker;
+                  ${selectedLocation ? `marker = L.marker([${selectedLocation.latitude}, ${selectedLocation.longitude}]).addTo(map);` : ''}
+
+                  map.on('click', function(e){
+                    window.ReactNativeWebView.postMessage(JSON.stringify({ latitude: e.latlng.lat, longitude: e.latlng.lng }));
+                  });
+                </script>
+              </body>
+              </html>
+            `}}
+
+          onMessage={(event) => {
+                const { latitude, longitude } = JSON.parse(event.nativeEvent.data);
+                handleMapPress({ lat: latitude, lng: longitude });
+            }}
+
+            style={{ flex: 1 }}
+          />
+
+          {/* Back Button */}
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+
+          {/* Instructions */}
+          {mode === 'pinpoint' && (
+            <View style={styles.instructionsContainer}>
+              <Text style={styles.instructionsText}>
+                Tap on the map to pinpoint the damage location
+              </Text>
+            </View>
+          )}
+
+          {/* Submit Button */}
+          {mode === 'pinpoint' && (
+            <View style={styles.submitContainer}>
+              <TouchableOpacity
+                style={[
+                    styles.submitButton,
+                    (!selectedLocation || processing) && styles.submitButtonDisabled
+                ]}
+                onPress={handleSubmitLocation}
+                disabled={!selectedLocation || processing}
             >
-                {selectedLocation && (
-                    <Marker
-                        coordinate={selectedLocation}
-                        title="Damage Location"
-                        description={mode === 'pinpoint' ? "Tap to confirm this location" : "Damage location"}
-                    />
-                )}
-            </MapView>
-
-            {/* Back Button - Always visible */}
-            <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-                <Text style={styles.backButtonText}>← Back</Text>
+                <Text
+                    style={[
+                        styles.submitButtonText,
+                        (!selectedLocation || processing) && styles.submitButtonTextDisabled
+                    ]}
+                >
+                    {processing ? '⏳ Processing...' : '✅ Confirm Location'}
+                </Text>
             </TouchableOpacity>
-
-            {/* Instructions - Only shown in pinpoint mode */}
-            {mode === 'pinpoint' && (
-                <View style={styles.instructionsContainer}>
-                    <Text style={styles.instructionsText}>
-                        Tap on the map to pinpoint the damage location
-                    </Text>
-                </View>
-            )}
-
-            {/* Submit Button - Only in pinpoint mode */}
-            {mode === 'pinpoint' && (
-                <View style={styles.submitContainer}>
-                    <TouchableOpacity
-                        style={[
-                            styles.submitButton,
-                            !selectedLocation && styles.submitButtonDisabled
-                        ]}
-                        onPress={handleSubmitLocation}
-                        disabled={!selectedLocation}
-                    >
-                        <Text style={[
-                            styles.submitButtonText,
-                            !selectedLocation && styles.submitButtonTextDisabled
-                        ]}>
-                            ✅ Confirm Location
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
+            </View>
+          )}
         </View>
-    );
+      );
 }
 
 const styles = StyleSheet.create({
@@ -164,8 +244,8 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 50,
-    left: 20,
+    top: 85,
+    left: 10,
     backgroundColor: colors.primary,
     paddingHorizontal: 15,
     paddingVertical: 10,

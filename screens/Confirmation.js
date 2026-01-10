@@ -3,48 +3,18 @@ import { SelectList } from 'react-native-dropdown-select-list'
 import { useState, useEffect } from 'react';
 import Label from '../Label.json';
 import { colors } from '../colors';
-
+import * as FileSystem from 'expo-file-system';
+import { ActivityIndicator, Alert } from "react-native";
 
 const Seperator = () => <View style = {styles.seperator}/>;
-
-
-
-const Confirmation = ({navigation}) => {
-    const [isselected, setIsselecteddamage] = useState(null);
-    const [iscorrect, setIscorrectlabel] = useState(false);
-    const [label,setlabel] = useState('');
-    const [recommendation,  setrecommendation] = useState('');
-    //To do: Sending data to the backend
-    const isselecteddamage = (index) =>{
-        if(isselected == index){
-            setIsselecteddamage(null);
-        }else{
-            setIsselecteddamage(index);
-        }
-    }
+const Confirmation = ({route,navigation}) => {
+    const {token, temppath, filename_link, longitude, latitude } = route.params;
     const [damage,setDamage] = useState([]);
-    const get_folder_name = async() =>{
-        try{
-            const response = await fetch('http://192.168.82.213:5000/api/get_folder_name',
-                {
-                    method:'GET',
-                }
-            );
-            const folder = await response.json();
-            setDamage(folder.data)
-        }catch(error){
-            console.log(error)
-        }
-    }
-
-    useEffect(()=>{
-        get_folder_name();
-    },[])
-
-    {/* for the dropdown list */}
-    const [selected, setSelected] = useState("");
+    const [damagetype,setDamagetype] = useState("");
+    const [possiblecause,setPossiblecause] = useState("");
+    const [recommendation,setRecommendation] = useState("");
     const [selectedSeverity, setSelectedSeverity] = useState("");
-
+    const [isLoading, setIsLoading] = useState(false);
     // Severity level options
     const severityOptions = [
         {"key":"1", "value":"Minor"},
@@ -52,6 +22,100 @@ const Confirmation = ({navigation}) => {
         {"key":"3", "value":"Severe"}
     ];
 
+    {/* for the dropdown list */}
+    const [selected, setSelected] = useState("");
+    const get_folder_name = async() =>{
+        try{
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/get_folder_name',
+                {
+                    method:'GET',
+                }
+            );
+            const folder = await response.json();
+            const updated_list = [...folder.data,{key:"other",value:"Others"}];
+            setDamage(updated_list)
+        }catch(error){
+            console.log(error)
+        }
+    }
+
+    const generateRandomNumber_for_name = () => {
+        const min = 1; // Minimum value
+        const max = 10000000000; // Maximum value
+        // Generate random number in the range [min, max]
+        const number = Math.floor(Math.random() * (max - min + 1)) + min;
+        return number
+    };
+
+    const sending_database = async() =>{
+        if (isLoading) return;
+
+        setIsLoading(true);
+        const formdata = new FormData();
+        //This is for known damage
+        if(damagetype === "" && selected !== null && recommendation !== null && possiblecause !== null && selectedSeverity !== null){
+            formdata.append('latitude', latitude)
+            formdata.append('longitude',longitude)
+            formdata.append('image',
+                {
+                    uri:temppath,
+                    name:filename_link || `${generateRandomNumber_for_name()}.jpg`,
+                    type:'image/jpg',
+                }
+            );
+            formdata.append('token',token)
+            formdata.append('severity',selectedSeverity)
+            formdata.append('damage',selected)
+            formdata.append('Recommendation',recommendation)
+            formdata.append('possiblecause',possiblecause)
+        //this part is the new data    
+        }else if(damagetype !== null && selected === "Others" && recommendation !== null && possiblecause !== null && selectedSeverity !== null){
+            formdata.append('latitude', latitude)
+            formdata.append('longitude',longitude)
+            formdata.append('image',
+                {
+                    uri:temppath,
+                    name:filename_link || `${generateRandomNumber_for_name()}.jpg`,
+                    type:'image/jpg'
+                }
+            )
+            formdata.append('token',token)
+            formdata.append('severity',selectedSeverity)
+            formdata.append('damage',damagetype)
+            formdata.append('Recommendation',recommendation)
+            formdata.append('possiblecause',possiblecause)
+        }else if(damagetype !== "" && selected !== ""){
+            Alert.alert("Both Selected List Damage and Input Damage has value, Please Choose One");
+            setIsLoading(false);
+            return;
+        }else if(recommendation == null || possiblecause == null || selectedSeverity == null){
+            Alert.alert("Make sure to have Input!")
+            setIsLoading(false);
+            return;
+        }
+        console.log(formdata)
+        console.log(temppath)
+        //Sending it to the database
+        try{
+            const response = await fetch('https://back-end-server-v8fv.onrender.com/api/new_data',
+                 {
+                method: 'POST',
+                body:formdata,
+                }
+            )
+            const message = await response.json();
+            console.log(message); 
+        }catch(err){
+            console.log(err)
+        }
+        await FileSystem.deleteAsync(temppath,{idempotent:true})
+        console.log("temporary file has been deleted!")
+        setIsLoading(false);
+        navigation.navigate("Home");
+    }
+    useEffect(()=>{
+        get_folder_name();
+    },[])
     return(
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
@@ -73,8 +137,8 @@ const Confirmation = ({navigation}) => {
                             <Text style={styles.label}>Label</Text>
                             <View style={styles.dropdownContainer}>
                                 <SelectList
-                                    setSelected={(val) => setSelected(val)}
-                                    data={Label}
+                                    setSelected={(val) => setSelected(val)} 
+                                    data={damage} 
                                     save="value"
                                     boxStyles={styles.dropdownBox}
                                     inputStyles={styles.dropdownInput}
@@ -82,7 +146,21 @@ const Confirmation = ({navigation}) => {
                                 />
                             </View>
                         </View>
-
+                        {selected === "Others" ? (
+                            <>
+                                <Text style={styles.label}>
+                                    Damage Name (If damage isn't in the Label)
+                                </Text>
+                                <TextInput
+                                    value = {damagetype}
+                                    onChangeText = {setDamagetype} 
+                                    style={[styles.input, styles.textArea]}
+                                    placeholder="Input what kind of damage...."
+                                    placeholderTextColor={colors.textLight}
+                                />
+                            </>
+                        ): null
+                        }
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Enter severity</Text>
                             <View style={styles.dropdownContainer}>
@@ -97,10 +175,11 @@ const Confirmation = ({navigation}) => {
                                 />
                             </View>
                         </View>
-
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Repair Recommendation</Text>
+                            <Text style={styles.label}>Repair Recommendation (Required)</Text>
                             <TextInput
+                                value = {recommendation}
+                                onChangeText={setRecommendation}
                                 style={[styles.input, styles.textArea]}
                                 placeholder="Describe recommended repair actions..."
                                 placeholderTextColor={colors.textLight}
@@ -110,8 +189,10 @@ const Confirmation = ({navigation}) => {
                         </View>
 
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Possible Cause</Text>
+                            <Text style={styles.label}>Possible Effect (Required)</Text>
                             <TextInput
+                                value = {possiblecause}
+                                onChangeText={setPossiblecause}
                                 style={[styles.input, styles.textArea]}
                                 placeholder="Describe possible causes of the damage..."
                                 placeholderTextColor={colors.textLight}
@@ -120,17 +201,30 @@ const Confirmation = ({navigation}) => {
                             />
                         </View>
                     </View>
-
                     <Seperator/>
-
                     {/* Submit Button */}
                     <View style={styles.submitSection}>
-                        <TouchableOpacity
-                            style={styles.submitButton}
-                            onPress={() => navigation.navigate("Map", { mode: 'pinpoint' })}
-                        >
-                            <Text style={styles.submitButtonText}>📍 Locate the damage</Text>
-                        </TouchableOpacity>
+                        <View style={styles.submitSection}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.submitButton,
+                                    isLoading && { opacity: 0.7 } // make it slightly dimmed when loading
+                                ]}
+                                onPress={!isLoading ? sending_database : null}
+                                disabled={isLoading}
+                                >
+                                {isLoading ? (
+                                    <>
+                                        <ActivityIndicator size="small" color={colors.surface} />
+                                        <Text style={[styles.submitButtonText, { marginLeft: 10 }]}>
+                                            Submitting...
+                                        </Text>
+                                    </>
+                                ) : (
+                                    <Text style={styles.submitButtonText}>Submit</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </ScrollView>

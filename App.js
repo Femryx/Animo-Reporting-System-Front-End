@@ -8,6 +8,7 @@ import LogIn from "./screens/LogIn";
 import Upload from "./screens/Upload";
 import Geoloc from "./screens/Geoloc";
 import Confirmation from "./screens/Confirmation";
+import Settings from "./screens/Settings";
 import 'react-native-gesture-handler';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { colors } from './colors';
@@ -59,6 +60,11 @@ export default function App() {
           name="Confirmation" 
           component={Confirmation}
           options={{ title: 'Confirmation' }}
+        />
+        <Stack.Screen 
+          name="Settings" 
+          component={Settings} 
+          options={{ title: 'Settings' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

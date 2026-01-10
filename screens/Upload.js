@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from "expo-image-picker";
 import { colors } from '../colors';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const Separator = () => <View style={styles.separator}/>;
 
@@ -22,38 +24,42 @@ const Upload = ({navigation}) => {
     const [uploading, setUploading] = useState(false);
     const [imageInfo, setImageInfo] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [predicted, setPredicted] = useState({});
+    const [invalidFileModal, setInvalidFileModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-    //If the predictions is correct sending it to the database
-    const post_database_data = async()=>{
+    //Information for the passing if ever it is false or true
+    const [prediction,setprediction] = useState("");
+    const [severity,setSeverity] = useState("");
+    const [confidence,setConfidence] = useState(0);
+    const [severityscore, setSeverityScore] = useState(0);
+    const [highlightimage,sethighlightimage] = useState();
+    //Image
+    const formdata = new FormData()
 
-        const split_photo = photolink.split('/');
-        const filename = split_photo[split_photo.length-1];
-        formdata.append('image',
-           {
-            uri: photolink,
-            name:filename,
-            type:'image/jpg'
-           }
-        )
-        
-        formdata.append('result',predicted.result)
-        formdata.append('longitude',longitude)
-        formdata.append('latitude',latitude)
-        console.log(formdata)
-        try{
-            const response = await fetch('http://192.168.82.213:5000/api/store_the_post',
-            {
-                method:'POST',
-                body:formdata
-            }
-        )
-            const message = await response.json();
-            console.log(message.message)
-        }catch(error){
-            console.log(error)
-        }
-        navigation.navigate("Home")
+    const get_highlights_image = async(image_url)=>{
+        console.log("Sample1")
+        const base64Image = await FileSystem.readAsStringAsync(image_url, {
+            encoding: FileSystem.EncodingType.Base64,
+        });
+        const response = await fetch('https://serverless.roboflow.com/projects-lkhtb/workflows/detect-count-and-visualize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                api_key: 'DWFToNzm6BYOFx31CvMx',
+                inputs: {
+                    image: {
+                        type: "base64",
+                        value: base64Image
+                    }
+                }
+            })
+        });
+        const result = await response.json();
+        sethighlightimage(result.outputs[0].output_image.value);
+        console.log(result)
+        console.log('done')
     }
 
     // Request permissions for accessing media library
@@ -73,8 +79,8 @@ const Upload = ({navigation}) => {
     // Select image from gallery
     const selectImage = async () => {
         const hasPermission = await requestPermissions();
+        
         if (!hasPermission) return;
-
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
@@ -85,81 +91,106 @@ const Upload = ({navigation}) => {
         if (!result.canceled && result.assets[0]) {
             const asset = result.assets[0];
             setSelectedImage(asset.uri);
+            const fileName = asset.fileName || asset.uri.split('/').pop();
+
+            const lowerFile = fileName.toLowerCase();
+            if (!lowerFile.endsWith('.jpeg')) {
+                setInvalidFileModal(true); // show pop-up
+                return;
+            }
             setImageInfo({
                 width: asset.width,
                 height: asset.height,
                 fileSize: asset.fileSize,
                 fileName: asset.fileName || 'image.jpg'
             });
-        }
-    };
+        };
+    }
+    const get_predictions = async() =>{
+        formdata.append('image', {
+        uri: selectedImage,
+        type: 'image/jpg',
+        name: imageInfo?.fileName || 'image.jpg',
+        });
 
+        const response = await fetch('http://192.168.5.108:5000/api/get_predictions',
+            {
+                method:'POST',
+                headers:{
+                    'Content-Type': 'multipart/form-data',
+                },
+                body:formdata,
+            }
+        );
+        const json = await response.json();
+        setprediction(json.result);
+        setConfidence(json.score);
+        setSeverity(json.severity);
+        setSeverityScore(json.severity_score);
+        return json;
+    }
     // Upload image function - now shows modal instead of direct upload
     const uploadImage = async () => {
         if (!selectedImage) {
             Alert.alert('No Image', 'Please select an image first!');
             return;
         }
-
+        setIsLoading(true);
+        const json = await get_predictions();
+        await get_highlights_image(selectedImage);
         // Show modal for prediction/confirmation
-        setIsModalVisible(true);
-        
-        // Simulate getting predictions (you can replace this with actual API call)
-        setPredicted({
-            result: 'Sample Prediction',
-            confidence: '85%',
-            severity: 'Medium',
-            cost: '$150'
-        });
-    };
-
-    // Handle prediction confirmation
-    const handlePredictionConfirm = async () => {
-        setUploading(true);
-        setIsModalVisible(false);
-        
-        try {
-            // Create FormData for file upload
-            const formData = new FormData();
-            formData.append('image', {
-                uri: selectedImage,
-                type: 'image/jpeg',
-                name: imageInfo?.fileName || 'image.jpg',
-            });
-
-            //upload to your server
-            //simulate an upload
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            Alert.alert(
-                'Success!',
-                'Image uploaded successfully!',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setSelectedImage(null);
-                            setImageInfo(null);
-                        }
-                    }
-                ]
-            );
-        } catch (error) {
-            Alert.alert('Upload Failed', 'Failed to upload image. Please try again.');
-            console.error('Upload error:', error);
-        } finally {
-            setUploading(false);
+        if (json.result){
+            setIsModalVisible(true);
         }
+        setIsLoading(false);
     };
 
+    const passing_data = async(correct)=>{
+        try{
+            const temppath = FileSystem.documentDirectory + imageInfo?.fileName
+
+            //Copying
+            await FileSystem.copyAsync({
+                from: selectedImage,
+                to: temppath,
+            })
+
+            //filename
+            const fileName_link = imageInfo?.fileName
+
+            const token = await AsyncStorage.getItem('jwt');
+            navigation.navigate("Map",{
+                token,
+                prediction,
+                severity,
+                temppath,
+                fileName_link,
+                mode: "pinpoint",
+                correct
+            })
+        }catch(err){
+            console.log(err)
+        }
+    }
     // Clear selected image
     const clearImage = () => {
         setSelectedImage(null);
+        sethighlightimage(null);
         setImageInfo(null);
+        setprediction("");
+        setConfidence(0);
+        setSeverity("");
     };
-
     return (
         <SafeAreaView style={styles.container}>
+            {isLoading && (
+                <View style={styles.loadingOverlay}>
+                    <View style={styles.loadingBox}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={styles.loadingText}>Analyzing image...</Text>
+                    </View>
+                </View>
+            )}
             <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <View style={styles.content}>
                 <Text style={styles.title}>Upload Image</Text>
@@ -221,19 +252,20 @@ const Upload = ({navigation}) => {
                     <View style={styles.popUp}>
                         <View style={styles.popUpElements}>
                             <View style={styles.pictureBox}>
-                                {selectedImage && (
-                                    <Image source={{ uri: selectedImage }} style={styles.modalImage} />
+                                {highlightimage ? (
+                                    <Image source={{ uri: `data:image/jpeg;base64,${highlightimage}` }} style={styles.modalImage} />
+                                ):(
+                                    <Text style = {styles.pictureBox}>Loading image...</Text> // optional placeholder
                                 )}
                             </View>
-                            
                             <View style={styles.predictionContainer}>
-                                <Text style={styles.modelTitle}>Prediction: {predicted.result}</Text>
-                                <Text style={styles.modelSubtitle}>Confidence: {predicted.confidence}</Text>
-                                <Text style={styles.modelSubtitle}>Severity: {predicted.severity}</Text>
-                                <Text style={styles.modelSubtitle}>Cost of repair: {predicted.cost}</Text>
+                                <Text style={styles.modelTitle}>Prediction: {prediction}</Text>
+                                <Text style={styles.modelSubtitle}>Severity: {severity}</Text>
+                                <Text style={styles.modelSubtitle}>
+                                Severity Score: {severityscore == null || isNaN(severityscore) ? 'Unknown' : `${Math.round(severityscore * 100)}%`}
+                                </Text>
+                                <Text style={styles.modelSubtitle}>Probability: {Math.round(confidence * 100)}%</Text>
                             </View>
-                            
-                            <Text style={styles.confirmationText}>Is the Prediction Correct?</Text>
                         </View>
                         
                         <Separator/>
@@ -242,19 +274,27 @@ const Upload = ({navigation}) => {
                             <TouchableOpacity
                                 style={[styles.confirmButton, styles.yesButton]}
                                 onPress={async() => 
-                                    await post_database_data()
+                                    {
+                                        setIsModalVisible(false),
+                                        clearImage(),
+                                        passing_data('Yes')
+                                    }
                                 }
                             >
-                                <Text style={styles.confirmButtonText}>✓ Yes</Text>
+                                <Text style={styles.confirmButtonText}>Submit Report</Text>
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity
+                            {/* <TouchableOpacity
                                 style={[styles.confirmButton, styles.noButton]}
                                 onPress={() => 
-                                    navigation.navigate("Confirmation")}
+                                    {
+                                        setIsModalVisible(false),
+                                        clearImage(),
+                                        passing_data('No')
+                                    }   
+                                }
                             >
                                 <Text style={styles.confirmButtonText}>✗ No</Text>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
                     </View>
                 </View>
@@ -480,5 +520,35 @@ const styles = StyleSheet.create({
         color: colors.surface,
         fontSize: 16,
         fontWeight: '600',
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999,
+    },
+    loadingBox: {
+        backgroundColor: colors.surface,
+        paddingVertical: 30,
+        paddingHorizontal: 50,
+        borderRadius: 20,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    loadingText: {
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginTop: 10,
     },
 });
