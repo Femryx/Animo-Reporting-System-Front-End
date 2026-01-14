@@ -1,5 +1,4 @@
 # ANIMO REPORTING SYSTEM
-=================================================
 
 Animo-Reporting System is a reporting system that is integrated with Image Classification, Recommendation System, and Geotagging.
 
