@@ -6,15 +6,15 @@ Animo-Reporting System is a reporting system that is integrated with Image Class
 
 Login Screen
 <p align="center">
-  <img src="/image/login.jpg" width="300" height="300">
+  <img src="/image/login.jpg" width="300" height="500">
 </p>
 HomeScreen - In this screen you can see the progress of the damages that was reported this can be handled by the Admin because they the limited use that can handle reported like delete and updating the damages and also uploading the fixed damage.
 <p align="center">
-  <img src="/image/homescreen.jpg" width="300" height="300">
+  <img src="/image/homescreen.jpg" width="300" height="500">
 </p>
 Classification — In this screen you will see how the damages will be classified, and you can also see the highlight where the damage was located in the image and also the damage type and severity.
 <p align="center">
-  <img src="/image/classification.jpg" width="300" height="300">
+  <img src="/image/classification.jpg" width="300" height="500">
 </p>
 
 
